@@ -57,7 +57,7 @@ class AppController extends ChangeNotifier {
           pin = cfg.pin;
           port = cfg.port;
           folder = cfg.folder;
-          urls = (cfg.urls as List<dynamic>?)?.map((e) => e as String).toList() ?? [];
+          urls = cfg.urls ?? [];
         }
       } catch (_) {
         // ignore — treat as not running

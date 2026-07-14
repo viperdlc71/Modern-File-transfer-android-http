@@ -86,31 +86,101 @@ class _StartPanel extends StatelessWidget {
           size: 72,
           color: scheme.primary.withOpacity(0.8),
         ),
-                 const SizedBox(height: 16),
-                 if (controller.urls.isNotEmpty)
-                   ...controller.urls.map((url) => Column(
-                     children: [
-                       QrImageView(
-                         data: url,
-                         size: 180,
-                         backgroundColor: Colors.white,
-                         padding: const EdgeInsets.all(10),
-                       ),
-                       const SizedBox(height: 8),
-                       const Text('Scan or open', style: TextStyle(fontSize: 11)),
-                       const SizedBox(height: 4),
-                       SelectableText(
-                         url,
-                         textAlign: TextAlign.center,
-                         style: const TextStyle(
-                           fontSize: 16,
-                           fontWeight: FontWeight.w700,
-                           letterSpacing: 0.3,
-                         ),
-                       ),
-                       const SizedBox(height: 14),
-                     ],
-                   )),
+        const SizedBox(height: 16),
+        Text(
+          'Turn your phone into a\nlocal file hub',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Start the server, then open the shown URL on any device '
+          'on the same network — no app install needed.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurface.withOpacity(0.7),
+              ),
+        ),
+        if (!controller.permissionsGranted) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Tip: grant notification permission so the server can run in the '
+            'background.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+        const SizedBox(height: 32),
+        FilledButton.icon(
+          onPressed: controller.start,
+          icon: const Icon(Icons.play_arrow_rounded),
+          label: const Text('Start Server'),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            textStyle: const TextStyle(fontSize: 18),
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+}
+
+class _RunningPanel extends StatelessWidget {
+  final AppController controller;
+  const _RunningPanel({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _PulsingCard(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: scheme.surfaceVariant,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.circle, size: 10, color: scheme.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      controller.isStarting ? 'Starting…' : 'Server is live',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (controller.urls.isNotEmpty)
+                  ...controller.urls.map((url) => Column(
+                        children: [
+                          QrImageView(
+                            data: url,
+                            size: 180,
+                            backgroundColor: Colors.white,
+                            padding: const EdgeInsets.all(10),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text('Scan or open', style: TextStyle(fontSize: 11)),
+                          const SizedBox(height: 4),
+                          SelectableText(
+                            url,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                      )),
                 const SizedBox(height: 20),
                 const Text('PIN', style: TextStyle(fontSize: 12)),
                 const SizedBox(height: 6),
@@ -200,7 +270,6 @@ class _FolderRow extends StatelessWidget {
   }
 }
 
-/// A card that pulses a soft glow to signal the server is active.
 class _PulsingCard extends StatefulWidget {
   final Widget child;
   const _PulsingCard({required this.child});

@@ -12,31 +12,9 @@ class WebAssets {
   <title>LocalDrop</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body data-view="pin">
-  <!-- ===== PIN view ===== -->
-  <section id="view-pin" class="view">
-    <div class="card pin-card">
-      <div class="logo">⬇</div>
-      <h1>LocalDrop</h1>
-      <p class="muted">Enter the 6-digit PIN shown on the phone.</p>
-      <form id="pin-form" autocomplete="off">
-        <input
-          id="pin-input"
-          class="pin-input"
-          inputmode="numeric"
-          pattern="[0-9]*"
-          maxlength="6"
-          placeholder="••••••"
-          aria-label="PIN"
-          autofocus
-        />
-      </form>
-      <p id="pin-error" class="error" hidden>Wrong PIN. Try again.</p>
-    </div>
-  </section>
-
-  <!-- ===== App view ===== -->
-  <section id="view-app" class="view" hidden>
+<body>
+  <!-- ===== File Manager (always rendered underneath) ===== -->
+  <section id="view-app" class="view">
     <header class="appbar">
       <div class="brand">
         <span class="logo small">⬇</span>
@@ -46,12 +24,27 @@ class WebAssets {
         <button class="tab active" data-tab="files" role="tab">Files</button>
         <button class="tab" data-tab="upload" role="tab">Upload</button>
       </nav>
-      <div class="conn" id="conn-status" title="Connection status">
-        <span class="dot"></span>
+      <div class="toolbar-right">
+        <button id="view-toggle" class="btn ghost icon-btn" title="Toggle view">☰</button>
+        <button id="sort-btn" class="btn ghost icon-btn" title="Sort">⇅</button>
+        <div class="conn" id="conn-status" title="Connection status">
+          <span class="dot"></span>
+        </div>
       </div>
     </header>
 
-    <!-- Files tab -->
+    <!-- Sort dropdown -->
+    <div id="sort-dropdown" class="dropdown" hidden>
+      <div class="dropdown-item" data-sort="name-asc">Name A–Z</div>
+      <div class="dropdown-item" data-sort="name-desc">Name Z–A</div>
+      <div class="dropdown-item" data-sort="size-asc">Size (smallest first)</div>
+      <div class="dropdown-item" data-sort="size-desc">Size (largest first)</div>
+      <div class="dropdown-item" data-sort="date-asc">Date (oldest first)</div>
+      <div class="dropdown-item" data-sort="date-desc">Date (newest first)</div>
+      <div class="dropdown-item" data-sort="type-asc">Type A–Z</div>
+      <div class="dropdown-item" data-sort="type-desc">Type Z–A</div>
+    </div>
+
     <div class="tabpanel" id="tab-files">
       <div class="filter-bar">
         <input type="search" id="filter-search" placeholder="Search files…" autocomplete="off" />
@@ -80,14 +73,16 @@ class WebAssets {
         <button id="clear-filters" class="btn ghost" title="Clear filters" hidden>✕</button>
         <span id="filter-count" class="filter-count" hidden></span>
       </div>
-      <div class="toolbar">
+
+      <div class="file-toolbar" id="file-toolbar">
         <label class="checkbox">
           <input type="checkbox" id="select-all" />
           <span>Select all</span>
         </label>
-        <button id="download-zip" class="btn primary" disabled>Download selected as ZIP</button>
+        <button id="download-zip" class="btn primary" disabled>Download selected</button>
         <button id="refresh" class="btn ghost" title="Refresh">⟳</button>
       </div>
+
       <div id="file-list" class="file-list" aria-live="polite"></div>
       <p id="files-empty" class="muted empty" hidden>No files in the shared folder.</p>
     </div>
@@ -108,6 +103,28 @@ class WebAssets {
     <div id="toast" class="toast" hidden></div>
   </section>
 
+  <!-- ===== PIN Modal (overlay) ===== -->
+  <div id="pin-overlay" class="pin-overlay">
+    <div class="pin-card">
+      <div class="logo">⬇</div>
+      <h1>LocalDrop</h1>
+      <p class="muted">Enter the 6-digit PIN shown on the phone.</p>
+      <form id="pin-form" autocomplete="off">
+        <input
+          id="pin-input"
+          class="pin-input"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          maxlength="6"
+          placeholder="••••••"
+          aria-label="PIN"
+          autofocus
+        />
+      </form>
+      <p id="pin-error" class="error" hidden>Wrong PIN. Try again.</p>
+    </div>
+  </div>
+
   <script src="app.js" defer></script>
 </body>
 </html>
@@ -118,8 +135,9 @@ class WebAssets {
   --bg: #f6f7f9;
   --surface: #ffffff;
   --surface-2: #eef0f3;
+  --surface-3: #e2e5ea;
   --text: #14181f;
-  --muted: #6b7480;
+  --text-secondary: #6b7480;
   --border: #e2e5ea;
   --primary: #2563eb;
   --primary-ink: #ffffff;
@@ -134,8 +152,9 @@ class WebAssets {
     --bg: #0d1117;
     --surface: #161b22;
     --surface-2: #1f2630;
+    --surface-3: #2a313c;
     --text: #e6edf3;
-    --muted: #8b949e;
+    --text-secondary: #8b949e;
     --border: #2a313c;
     --primary: #4d8bff;
     --primary-ink: #0d1117;
@@ -160,7 +179,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.muted { color: var(--muted); }
+.muted { color: var(--text-secondary); }
 .error { color: var(--danger); font-size: 0.9rem; margin-top: 0.75rem; }
 .empty { text-align: center; padding: 2rem 0; }
 
@@ -168,42 +187,9 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 1.25rem;
 }
-
-/* ---------- PIN ---------- */
-.pin-card {
-  width: 100%;
-  max-width: 380px;
-  text-align: center;
-  padding: 2rem 1.5rem;
-}
-.logo {
-  font-size: 2.5rem;
-  line-height: 1;
-}
-.logo.small { font-size: 1.1rem; }
-.pin-card h1 { margin: 0.5rem 0 0.25rem; font-size: 1.6rem; }
-.pin-input {
-  margin-top: 1.25rem;
-  width: 100%;
-  font-size: 2rem;
-  letter-spacing: 0.5rem;
-  text-align: center;
-  padding: 0.75rem;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text);
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-.pin-input:focus { border-color: var(--primary); }
 
 /* ---------- App shell ---------- */
-#view-app { justify-content: flex-start; padding: 0; }
 .appbar {
   width: 100%;
   display: flex;
@@ -217,73 +203,49 @@ body {
   z-index: 5;
 }
 .brand { display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem; }
-.tabs { display: flex; gap: 0.25rem; margin-left: auto; }
-.tab {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  padding: 0.45rem 0.9rem;
-  border-radius: 999px;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+.toolbar-right { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 1.1rem;
 }
-.tab.active { background: var(--surface-2); color: var(--text); }
 .conn .dot {
   display: inline-block;
   width: 10px; height: 10px;
   border-radius: 50%;
-  background: var(--muted);
+  background: var(--text-secondary);
   transition: background 0.2s ease;
 }
 .conn.ok .dot { background: var(--ok); box-shadow: 0 0 0 4px rgba(63,185,80,0.18); }
 .conn.bad .dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(225,29,72,0.18); }
 
-.tabpanel { width: 100%; max-width: 880px; margin: 0 auto; padding: 1.25rem; }
+.tabpanel { width: 100%; max-width: 880px; margin: 0 auto; padding: 1rem 1.25rem; }
 
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-}
-.checkbox { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--muted); cursor: pointer; }
-.btn {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  padding: 0.55rem 1rem;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: transform 0.08s ease, background 0.15s ease, opacity 0.15s ease;
-}
-.btn:active { transform: scale(0.98); }
-.btn.primary { background: var(--primary); color: var(--primary-ink); border-color: transparent; }
-.btn.ghost { background: transparent; border-color: transparent; font-size: 1.1rem; }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
-
-/* ---------- File list ---------- */
-.file-list { display: flex; flex-direction: column; gap: 0.5rem; }
-.file-row {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
+/* ---------- Sort dropdown ---------- */
+.dropdown {
+  position: absolute;
+  top: 56px;
+  right: 1rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.7rem 0.9rem;
+  border-radius: 12px;
   box-shadow: var(--shadow);
-  transition: transform 0.1s ease, border-color 0.15s ease;
+  z-index: 20;
+  min-width: 220px;
+  padding: 0.5rem 0;
 }
-.file-row:hover { border-color: var(--primary); }
-.file-row.selected { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
-.file-icon { font-size: 1.5rem; width: 2rem; text-align: center; flex: none; }
-.file-meta { flex: 1; min-width: 0; }
-.file-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.file-sub { font-size: 0.8rem; color: var(--muted); }
-.file-actions { display: flex; align-items: center; gap: 0.6rem; flex: none; }
+.dropdown-item {
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: background 0.1s ease;
+}
+.dropdown-item:hover { background: var(--surface-2); }
 
 /* ---------- Filter bar ---------- */
 .filter-bar {
@@ -321,6 +283,88 @@ body {
   margin-left: 0.25rem;
 }
 
+/* ---------- File toolbar ---------- */
+.file-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+.file-toolbar.hidden { display: none; }
+
+/* ---------- File list ---------- */
+.file-list { display: flex; flex-direction: column; gap: 0.35rem; }
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid transparent;
+  transition: background 0.1s ease, border-color 0.15s ease;
+  cursor: pointer;
+  user-select: none;
+}
+.file-row:hover { background: var(--surface-2); }
+.file-row.selected {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  border-color: var(--primary);
+}
+.file-check {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex: none;
+  visibility: hidden;
+}
+.file-row:hover .file-check,
+.file-row.selected .file-check,
+.file-toolbar.force-show .file-check {
+  visibility: visible;
+}
+.file-icon { font-size: 1.4rem; width: 2rem; text-align: center; flex: none; }
+.file-meta { flex: 1; min-width: 0; }
+.file-name {
+  font-weight: 500;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file-sub {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file-actions { display: flex; align-items: center; gap: 0.5rem; flex: none; }
+.file-row .btn.ghost { opacity: 0; transition: opacity 0.1s ease; }
+.file-row:hover .btn.ghost,
+.file-row.selected .btn.ghost { opacity: 1; }
+
+/* ---------- Grid view ---------- */
+.file-list.grid-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+.file-list.grid-view .file-row {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1rem 0.5rem;
+  gap: 0.5rem;
+}
+.file-list.grid-view .file-icon { font-size: 2.2rem; width: auto; }
+.file-list.grid-view .file-meta { width: 100%; }
+.file-list.grid-view .file-sub { font-size: 0.7rem; }
+.file-list.grid-view .file-actions { display: none; }
+.file-list.grid-view .file-check { visibility: visible; }
+
 /* ---------- Dropzone ---------- */
 .dropzone {
   border: 2px dashed var(--border);
@@ -331,7 +375,7 @@ body {
 }
 .dropzone.over { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }
 .dz-icon { font-size: 2.5rem; }
-.dz-inner p { color: var(--muted); margin: 0.5rem 0 0.9rem; }
+.dz-inner p { color: var(--text-secondary); margin: 0.5rem 0 0.9rem; }
 
 .upload-list { margin-top: 1.25rem; display: flex; flex-direction: column; gap: 0.6rem; }
 .up-row {
@@ -343,7 +387,7 @@ body {
 }
 .up-head { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; }
 .up-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.up-sub { font-size: 0.8rem; color: var(--muted); }
+.up-sub { font-size: 0.8rem; color: var(--text-secondary); }
 .progress {
   height: 8px;
   background: var(--surface-2);
@@ -358,6 +402,55 @@ body {
   border-radius: 999px;
   transition: width 0.2s ease;
 }
+
+/* ---------- PIN Modal ---------- */
+.pin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+.pin-overlay.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+.pin-card {
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  padding: 2.5rem 2rem;
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+}
+.logo {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+.logo.small { font-size: 1.1rem; }
+.pin-card h1 { margin: 0.5rem 0 0.25rem; font-size: 1.6rem; }
+.pin-input {
+  margin-top: 1.25rem;
+  width: 100%;
+  font-size: 2rem;
+  letter-spacing: 0.5rem;
+  text-align: center;
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.pin-input:focus { border-color: var(--primary); }
 
 /* ---------- Toast ---------- */
 .toast {
@@ -379,9 +472,27 @@ body {
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
+/* ---------- Misc ---------- */
+.btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.5rem 0.9rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s ease, opacity 0.15s ease;
+}
+.btn:active { transform: scale(0.98); }
+.btn.primary { background: var(--primary); color: var(--primary-ink); border-color: transparent; }
+.btn.ghost { background: transparent; border-color: transparent; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.checkbox { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text-secondary); cursor: pointer; font-size: 0.9rem; }
+
 @media (max-width: 520px) {
-  .file-sub { font-size: 0.72rem; }
-  .tabpanel { padding: 0.9rem; }
+  .file-sub { font-size: 0.7rem; }
+  .tabpanel { padding: 0.85rem; }
+  .pin-card { padding: 2rem 1.25rem; }
 }
 ''';
   static const String stylesCssType = "text/css; charset=utf-8";
@@ -392,14 +503,11 @@ body {
 
   const els = {
     body: document.body,
+    pinOverlay: document.getElementById("pin-overlay"),
     pinForm: document.getElementById("pin-form"),
     pinInput: document.getElementById("pin-input"),
     pinError: document.getElementById("pin-error"),
     viewApp: document.getElementById("view-app"),
-    viewPin: document.getElementById("view-pin"),
-    tabs: Array.from(document.querySelectorAll(".tab")),
-    tabFiles: document.getElementById("tab-files"),
-    tabUpload: document.getElementById("tab-upload"),
     fileList: document.getElementById("file-list"),
     filesEmpty: document.getElementById("files-empty"),
     selectAll: document.getElementById("select-all"),
@@ -417,6 +525,10 @@ body {
     filterDate: document.getElementById("filter-date"),
     clearFilters: document.getElementById("clear-filters"),
     filterCount: document.getElementById("filter-count"),
+    viewToggle: document.getElementById("view-toggle"),
+    sortBtn: document.getElementById("sort-btn"),
+    sortDropdown: document.getElementById("sort-dropdown"),
+    fileToolbar: document.getElementById("file-toolbar"),
   };
 
   const state = {
@@ -426,6 +538,10 @@ body {
     selected: new Set(),
     uploads: new Map(),
     filters: { search: "", type: "all", size: "all", date: "all" },
+    viewMode: "list",
+    sortKey: "name",
+    sortDir: "asc",
+    isSelecting: false,
   };
 
   /* ---------- helpers ---------- */
@@ -514,7 +630,7 @@ body {
   function matchType(name, type) {
     if (type === "all") return true;
     const ext = (name.split(".").pop() || "").toLowerCase();
-    return (TYPE_MAP[type] || []).includes(ext);
+    return (TYPE_MAP[type] || []).includes(ext) || (type === "other" && !(TYPE_MAP.document || []).includes(ext) && !(TYPE_MAP.image || []).includes(ext));
   }
 
   function matchSize(size, range) {
@@ -541,6 +657,22 @@ body {
     }
   }
 
+  function sortFiles(files) {
+    const key = state.sortKey;
+    const dir = state.sortDir === "asc" ? 1 : -1;
+    return files.slice().sort((a, b) => {
+      let va, vb;
+      if (key === "name") { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
+      else if (key === "size") { va = a.size || 0; vb = b.size || 0; }
+      else if (key === "date") { va = a.modified || 0; vb = b.modified || 0; }
+      else if (key === "type") { va = (a.name.split(".").pop() || "").toLowerCase(); vb = (b.name.split(".").pop() || "").toLowerCase(); }
+      else { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+  }
+
   function applyFilters() {
     const f = state.filters;
     state.filteredFiles = state.files.filter((file) => {
@@ -550,6 +682,7 @@ body {
       if (!matchDate(file.modified, f.date)) return false;
       return true;
     });
+    state.filteredFiles = sortFiles(state.filteredFiles);
     renderFiles();
     updateFilterUI();
     saveFilters();
@@ -595,7 +728,20 @@ body {
     applyFilters();
   }
 
-  /* ---------- auth ---------- */
+  /* ---------- auth / PIN modal ---------- */
+  function showPinModal() {
+    els.pinOverlay.classList.remove("fade-out");
+    els.pinOverlay.hidden = false;
+    els.pinInput.value = "";
+    els.pinError.hidden = true;
+    setTimeout(() => els.pinInput.focus(), 100);
+  }
+
+  function hidePinModal() {
+    els.pinOverlay.classList.add("fade-out");
+    setTimeout(() => { els.pinOverlay.hidden = true; }, 250);
+  }
+
   els.pinForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const pin = els.pinInput.value.trim();
@@ -614,7 +760,8 @@ body {
       }
       const data = await res.json();
       state.token = data.token;
-      enterApp();
+      hidePinModal();
+      loadFiles();
     } catch (err) {
       els.pinError.hidden = false;
       els.pinError.textContent = "Connection failed. Is the phone still on the network?";
@@ -629,23 +776,13 @@ body {
 
   function logout() {
     state.token = null;
-    els.viewApp.hidden = true;
-    els.viewPin.hidden = false;
-    els.body.dataset.view = "pin";
-    els.pinInput.value = "";
-    els.pinError.hidden = true;
-  }
-
-  async function enterApp() {
-    els.viewPin.hidden = true;
-    els.viewApp.hidden = false;
-    els.body.dataset.view = "app";
-    loadFilters();
-    await loadFiles();
+    state.selected.clear();
+    showPinModal();
   }
 
   /* ---------- files ---------- */
   async function loadFiles() {
+    if (!state.token) return;
     try {
       const res = await api("/api/files");
       const data = await res.json();
@@ -664,12 +801,15 @@ body {
     const list = state.filteredFiles;
     els.fileList.innerHTML = "";
     els.filesEmpty.hidden = list.length > 0;
+    els.fileList.classList.toggle("grid-view", state.viewMode === "grid");
+
     for (const f of list) {
       const row = document.createElement("div");
       row.className = "file-row";
+      if (state.selected.has(f.name)) row.classList.add("selected");
       row.dataset.name = f.name;
+
       const checked = state.selected.has(f.name);
-      if (checked) row.classList.add("selected");
       row.innerHTML = `
         <input type="checkbox" class="file-check" ${checked ? "checked" : ""} />
         <div class="file-icon">${iconFor(f.name)}</div>
@@ -678,15 +818,41 @@ body {
           <div class="file-sub">${fmtSize(f.size)} · ${fmtDate(f.modified)}</div>
         </div>
         <div class="file-actions">
-          <button class="btn primary dl" title="Download">↓ Download</button>
+          <button class="btn ghost dl" title="Download">↓</button>
         </div>`;
-      row.querySelector(".file-check").addEventListener("change", (e) => {
+
+      const checkbox = row.querySelector(".file-check");
+      checkbox.addEventListener("change", (e) => {
+        e.stopPropagation();
         if (e.target.checked) state.selected.add(f.name);
         else state.selected.delete(f.name);
         row.classList.toggle("selected", e.target.checked);
         updateSelectionUI();
       });
-      row.querySelector(".dl").addEventListener("click", () => downloadFile(f.name));
+
+      row.addEventListener("click", (e) => {
+        if (e.target === checkbox) return;
+        if (state.isSelecting || e.shiftKey || e.ctrlKey || e.metaKey) {
+          if (state.selected.has(f.name)) state.selected.delete(f.name);
+          else state.selected.add(f.name);
+          renderFiles();
+        } else {
+          downloadFile(f.name);
+        }
+      });
+
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        if (state.selected.has(f.name)) state.selected.delete(f.name);
+        else state.selected.add(f.name);
+        renderFiles();
+      });
+
+      row.querySelector(".dl").addEventListener("click", (e) => {
+        e.stopPropagation();
+        downloadFile(f.name);
+      });
+
       els.fileList.appendChild(row);
     }
     updateSelectionUI();
@@ -695,6 +861,7 @@ body {
   function updateSelectionUI() {
     els.downloadZip.disabled = state.selected.size === 0;
     els.selectAll.checked = state.filteredFiles.length > 0 && state.selected.size === state.filteredFiles.length;
+    els.fileToolbar.classList.toggle("force-show", state.selected.size > 0);
   }
 
   els.selectAll.addEventListener("change", (e) => {
@@ -726,6 +893,32 @@ body {
   });
 
   els.clearFilters.addEventListener("click", clearAllFilters);
+
+  els.viewToggle.addEventListener("click", () => {
+    state.viewMode = state.viewMode === "list" ? "grid" : "list";
+    els.viewToggle.textContent = state.viewMode === "list" ? "☰" : "☰";
+    renderFiles();
+  });
+
+  els.sortBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    els.sortDropdown.hidden = !els.sortDropdown.hidden;
+  });
+
+  document.addEventListener("click", () => {
+    els.sortDropdown.hidden = true;
+  });
+
+  els.sortDropdown.addEventListener("click", (e) => {
+    const item = e.target.closest(".dropdown-item");
+    if (!item) return;
+    const val = item.dataset.sort;
+    const [key, dir] = val.split("-");
+    state.sortKey = key;
+    state.sortDir = dir;
+    applyFilters();
+    els.sortDropdown.hidden = true;
+  });
 
   els.downloadZip.addEventListener("click", async () => {
     const names = Array.from(state.selected);
@@ -765,13 +958,17 @@ body {
   }
 
   /* ---------- tabs ---------- */
-  els.tabs.forEach((tab) => {
+  const tabs = Array.from(document.querySelectorAll(".tab"));
+  const tabFiles = document.getElementById("tab-files");
+  const tabUpload = document.getElementById("tab-upload");
+
+  tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
-      els.tabs.forEach((t) => t.classList.remove("active"));
+      tabs.forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
       const name = tab.dataset.tab;
-      els.tabFiles.hidden = name !== "files";
-      els.tabUpload.hidden = name !== "upload";
+      tabFiles.hidden = name !== "files";
+      tabUpload.hidden = name !== "upload";
     });
   });
 
@@ -840,7 +1037,7 @@ body {
     };
 
     let retries = 0;
-    const maxRetries = 1;
+    const maxRetries = 2;
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -852,15 +1049,20 @@ body {
         logout();
       } else {
         subHead.textContent = "Failed";
-        pct.textContent = "Upload error (" + xhr.status + ")";
+        let reason = "Upload error (" + xhr.status + ")";
+        try {
+          const err = JSON.parse(xhr.responseText);
+          if (err.error) reason = err.error;
+        } catch (_) {}
+        pct.textContent = reason;
       }
     };
 
     xhr.onerror = () => {
       if (retries < maxRetries) {
         retries++;
-        subHead.textContent = "Retrying…";
-        setTimeout(() => xhr.send(fd), 1000);
+        subHead.textContent = "Retrying (" + (retries + 1) + "/" + (maxRetries + 1) + ")…";
+        setTimeout(() => xhr.send(fd), 1500 * (retries + 1));
       } else {
         subHead.textContent = "Failed";
         pct.textContent = "Connection lost";
@@ -870,7 +1072,7 @@ body {
 
     xhr.ontimeout = () => {
       subHead.textContent = "Timeout";
-      pct.textContent = "Upload timed out";
+      pct.textContent = "Upload timed out — try again";
     };
 
     xhr.send(fd);
@@ -878,11 +1080,12 @@ body {
 
   /* ---------- periodic heartbeat ---------- */
   setInterval(() => {
-    if (els.body.dataset.view === "app") loadFiles();
+    if (state.token) loadFiles();
   }, 8000);
 
   /* ---------- boot ---------- */
-  els.pinInput.focus();
+  loadFilters();
+  showPinModal();
 })();
 ''';
   static const String appJsType = "application/javascript; charset=utf-8";

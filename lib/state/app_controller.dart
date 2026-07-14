@@ -30,6 +30,8 @@ class AppController extends ChangeNotifier {
   String? folder;
   String? error;
   bool permissionsGranted = false;
+  bool storagePermissionAsked = false;
+  bool storagePermissionGranted = false;
 
   List<Transfer> transfers = const [];
 
@@ -44,6 +46,13 @@ class AppController extends ChangeNotifier {
     _initForegroundTask();
     await _requestPermissions();
     FlutterForegroundTask.addTaskDataCallback(_onTaskData);
+
+    if (_settings.folderPath.isNotEmpty) {
+      final accessible = await ensureFolder(_settings.folderPath);
+      storagePermissionGranted = accessible;
+    }
+    storagePermissionAsked = true;
+    notifyListeners();
 
     // If a service is already running (e.g. survived app close), restore state
     // from the config we previously saved for the task isolate.
@@ -179,6 +188,19 @@ class AppController extends ChangeNotifier {
       requestFolderChange(picked);
     }
     notifyListeners();
+  }
+
+  Future<bool> requestStoragePermission() async {
+    final picked = await pickSharedFolder();
+    if (picked == null) return false;
+    final accessible = await ensureFolder(picked);
+    if (!accessible) return false;
+    _settings = _settings.copyWith(folderPath: picked);
+    await _store.save(_settings);
+    folder = picked;
+    storagePermissionGranted = true;
+    notifyListeners();
+    return true;
   }
 
   Future<void> updateSettings({

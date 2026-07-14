@@ -4,14 +4,11 @@
 
   const els = {
     body: document.body,
+    pinOverlay: document.getElementById("pin-overlay"),
     pinForm: document.getElementById("pin-form"),
     pinInput: document.getElementById("pin-input"),
     pinError: document.getElementById("pin-error"),
     viewApp: document.getElementById("view-app"),
-    viewPin: document.getElementById("view-pin"),
-    tabs: Array.from(document.querySelectorAll(".tab")),
-    tabFiles: document.getElementById("tab-files"),
-    tabUpload: document.getElementById("tab-upload"),
     fileList: document.getElementById("file-list"),
     filesEmpty: document.getElementById("files-empty"),
     selectAll: document.getElementById("select-all"),
@@ -29,6 +26,10 @@
     filterDate: document.getElementById("filter-date"),
     clearFilters: document.getElementById("clear-filters"),
     filterCount: document.getElementById("filter-count"),
+    viewToggle: document.getElementById("view-toggle"),
+    sortBtn: document.getElementById("sort-btn"),
+    sortDropdown: document.getElementById("sort-dropdown"),
+    fileToolbar: document.getElementById("file-toolbar"),
   };
 
   const state = {
@@ -38,6 +39,10 @@
     selected: new Set(),
     uploads: new Map(),
     filters: { search: "", type: "all", size: "all", date: "all" },
+    viewMode: "list",
+    sortKey: "name",
+    sortDir: "asc",
+    isSelecting: false,
   };
 
   /* ---------- helpers ---------- */
@@ -126,7 +131,7 @@
   function matchType(name, type) {
     if (type === "all") return true;
     const ext = (name.split(".").pop() || "").toLowerCase();
-    return (TYPE_MAP[type] || []).includes(ext);
+    return (TYPE_MAP[type] || []).includes(ext) || (type === "other" && !(TYPE_MAP.document || []).includes(ext) && !(TYPE_MAP.image || []).includes(ext));
   }
 
   function matchSize(size, range) {
@@ -153,6 +158,22 @@
     }
   }
 
+  function sortFiles(files) {
+    const key = state.sortKey;
+    const dir = state.sortDir === "asc" ? 1 : -1;
+    return files.slice().sort((a, b) => {
+      let va, vb;
+      if (key === "name") { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
+      else if (key === "size") { va = a.size || 0; vb = b.size || 0; }
+      else if (key === "date") { va = a.modified || 0; vb = b.modified || 0; }
+      else if (key === "type") { va = (a.name.split(".").pop() || "").toLowerCase(); vb = (b.name.split(".").pop() || "").toLowerCase(); }
+      else { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+  }
+
   function applyFilters() {
     const f = state.filters;
     state.filteredFiles = state.files.filter((file) => {
@@ -162,6 +183,7 @@
       if (!matchDate(file.modified, f.date)) return false;
       return true;
     });
+    state.filteredFiles = sortFiles(state.filteredFiles);
     renderFiles();
     updateFilterUI();
     saveFilters();
@@ -207,7 +229,20 @@
     applyFilters();
   }
 
-  /* ---------- auth ---------- */
+  /* ---------- auth / PIN modal ---------- */
+  function showPinModal() {
+    els.pinOverlay.classList.remove("fade-out");
+    els.pinOverlay.hidden = false;
+    els.pinInput.value = "";
+    els.pinError.hidden = true;
+    setTimeout(() => els.pinInput.focus(), 100);
+  }
+
+  function hidePinModal() {
+    els.pinOverlay.classList.add("fade-out");
+    setTimeout(() => { els.pinOverlay.hidden = true; }, 250);
+  }
+
   els.pinForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const pin = els.pinInput.value.trim();
@@ -226,7 +261,8 @@
       }
       const data = await res.json();
       state.token = data.token;
-      enterApp();
+      hidePinModal();
+      loadFiles();
     } catch (err) {
       els.pinError.hidden = false;
       els.pinError.textContent = "Connection failed. Is the phone still on the network?";
@@ -241,23 +277,13 @@
 
   function logout() {
     state.token = null;
-    els.viewApp.hidden = true;
-    els.viewPin.hidden = false;
-    els.body.dataset.view = "pin";
-    els.pinInput.value = "";
-    els.pinError.hidden = true;
-  }
-
-  async function enterApp() {
-    els.viewPin.hidden = true;
-    els.viewApp.hidden = false;
-    els.body.dataset.view = "app";
-    loadFilters();
-    await loadFiles();
+    state.selected.clear();
+    showPinModal();
   }
 
   /* ---------- files ---------- */
   async function loadFiles() {
+    if (!state.token) return;
     try {
       const res = await api("/api/files");
       const data = await res.json();
@@ -276,12 +302,15 @@
     const list = state.filteredFiles;
     els.fileList.innerHTML = "";
     els.filesEmpty.hidden = list.length > 0;
+    els.fileList.classList.toggle("grid-view", state.viewMode === "grid");
+
     for (const f of list) {
       const row = document.createElement("div");
       row.className = "file-row";
+      if (state.selected.has(f.name)) row.classList.add("selected");
       row.dataset.name = f.name;
+
       const checked = state.selected.has(f.name);
-      if (checked) row.classList.add("selected");
       row.innerHTML = `
         <input type="checkbox" class="file-check" ${checked ? "checked" : ""} />
         <div class="file-icon">${iconFor(f.name)}</div>
@@ -290,15 +319,41 @@
           <div class="file-sub">${fmtSize(f.size)} · ${fmtDate(f.modified)}</div>
         </div>
         <div class="file-actions">
-          <button class="btn primary dl" title="Download">↓ Download</button>
+          <button class="btn ghost dl" title="Download">↓</button>
         </div>`;
-      row.querySelector(".file-check").addEventListener("change", (e) => {
+
+      const checkbox = row.querySelector(".file-check");
+      checkbox.addEventListener("change", (e) => {
+        e.stopPropagation();
         if (e.target.checked) state.selected.add(f.name);
         else state.selected.delete(f.name);
         row.classList.toggle("selected", e.target.checked);
         updateSelectionUI();
       });
-      row.querySelector(".dl").addEventListener("click", () => downloadFile(f.name));
+
+      row.addEventListener("click", (e) => {
+        if (e.target === checkbox) return;
+        if (state.isSelecting || e.shiftKey || e.ctrlKey || e.metaKey) {
+          if (state.selected.has(f.name)) state.selected.delete(f.name);
+          else state.selected.add(f.name);
+          renderFiles();
+        } else {
+          downloadFile(f.name);
+        }
+      });
+
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        if (state.selected.has(f.name)) state.selected.delete(f.name);
+        else state.selected.add(f.name);
+        renderFiles();
+      });
+
+      row.querySelector(".dl").addEventListener("click", (e) => {
+        e.stopPropagation();
+        downloadFile(f.name);
+      });
+
       els.fileList.appendChild(row);
     }
     updateSelectionUI();
@@ -307,6 +362,7 @@
   function updateSelectionUI() {
     els.downloadZip.disabled = state.selected.size === 0;
     els.selectAll.checked = state.filteredFiles.length > 0 && state.selected.size === state.filteredFiles.length;
+    els.fileToolbar.classList.toggle("force-show", state.selected.size > 0);
   }
 
   els.selectAll.addEventListener("change", (e) => {
@@ -338,6 +394,32 @@
   });
 
   els.clearFilters.addEventListener("click", clearAllFilters);
+
+  els.viewToggle.addEventListener("click", () => {
+    state.viewMode = state.viewMode === "list" ? "grid" : "list";
+    els.viewToggle.textContent = state.viewMode === "list" ? "☰" : "☰";
+    renderFiles();
+  });
+
+  els.sortBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    els.sortDropdown.hidden = !els.sortDropdown.hidden;
+  });
+
+  document.addEventListener("click", () => {
+    els.sortDropdown.hidden = true;
+  });
+
+  els.sortDropdown.addEventListener("click", (e) => {
+    const item = e.target.closest(".dropdown-item");
+    if (!item) return;
+    const val = item.dataset.sort;
+    const [key, dir] = val.split("-");
+    state.sortKey = key;
+    state.sortDir = dir;
+    applyFilters();
+    els.sortDropdown.hidden = true;
+  });
 
   els.downloadZip.addEventListener("click", async () => {
     const names = Array.from(state.selected);
@@ -377,13 +459,17 @@
   }
 
   /* ---------- tabs ---------- */
-  els.tabs.forEach((tab) => {
+  const tabs = Array.from(document.querySelectorAll(".tab"));
+  const tabFiles = document.getElementById("tab-files");
+  const tabUpload = document.getElementById("tab-upload");
+
+  tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
-      els.tabs.forEach((t) => t.classList.remove("active"));
+      tabs.forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
       const name = tab.dataset.tab;
-      els.tabFiles.hidden = name !== "files";
-      els.tabUpload.hidden = name !== "upload";
+      tabFiles.hidden = name !== "files";
+      tabUpload.hidden = name !== "upload";
     });
   });
 
@@ -452,7 +538,7 @@
     };
 
     let retries = 0;
-    const maxRetries = 1;
+    const maxRetries = 2;
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -464,15 +550,20 @@
         logout();
       } else {
         subHead.textContent = "Failed";
-        pct.textContent = "Upload error (" + xhr.status + ")";
+        let reason = "Upload error (" + xhr.status + ")";
+        try {
+          const err = JSON.parse(xhr.responseText);
+          if (err.error) reason = err.error;
+        } catch (_) {}
+        pct.textContent = reason;
       }
     };
 
     xhr.onerror = () => {
       if (retries < maxRetries) {
         retries++;
-        subHead.textContent = "Retrying…";
-        setTimeout(() => xhr.send(fd), 1000);
+        subHead.textContent = "Retrying (" + (retries + 1) + "/" + (maxRetries + 1) + ")…";
+        setTimeout(() => xhr.send(fd), 1500 * (retries + 1));
       } else {
         subHead.textContent = "Failed";
         pct.textContent = "Connection lost";
@@ -482,7 +573,7 @@
 
     xhr.ontimeout = () => {
       subHead.textContent = "Timeout";
-      pct.textContent = "Upload timed out";
+      pct.textContent = "Upload timed out — try again";
     };
 
     xhr.send(fd);
@@ -490,9 +581,10 @@
 
   /* ---------- periodic heartbeat ---------- */
   setInterval(() => {
-    if (els.body.dataset.view === "app") loadFiles();
+    if (state.token) loadFiles();
   }, 8000);
 
   /* ---------- boot ---------- */
-  els.pinInput.focus();
+  loadFilters();
+  showPinModal();
 })();

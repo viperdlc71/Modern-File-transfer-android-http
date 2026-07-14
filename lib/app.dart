@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../state/app_controller.dart';
 import 'ui/home_screen.dart';
+import 'ui/permission_screen.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -30,7 +32,24 @@ class MyApp extends StatelessWidget {
         colorScheme: darkScheme,
         scaffoldBackgroundColor: darkScheme.background,
       ),
-      home: const HomeScreen(),
+      home: const _Gate(),
     );
   }
 }
+
+class _Gate extends StatelessWidget {
+  const _Gate();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Provider.of<AppController>(context);
+    if (!controller.storagePermissionAsked) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (!controller.storagePermissionGranted) {
+      return const PermissionScreen();
+    }
+    return const HomeScreen();
+  }
+}
+

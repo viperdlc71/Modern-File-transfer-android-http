@@ -7,31 +7,9 @@
   <title>LocalDrop</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body data-view="pin">
-  <!-- ===== PIN view ===== -->
-  <section id="view-pin" class="view">
-    <div class="card pin-card">
-      <div class="logo">⬇</div>
-      <h1>LocalDrop</h1>
-      <p class="muted">Enter the 6-digit PIN shown on the phone.</p>
-      <form id="pin-form" autocomplete="off">
-        <input
-          id="pin-input"
-          class="pin-input"
-          inputmode="numeric"
-          pattern="[0-9]*"
-          maxlength="6"
-          placeholder="••••••"
-          aria-label="PIN"
-          autofocus
-        />
-      </form>
-      <p id="pin-error" class="error" hidden>Wrong PIN. Try again.</p>
-    </div>
-  </section>
-
-  <!-- ===== App view ===== -->
-  <section id="view-app" class="view" hidden>
+<body>
+  <!-- ===== File Manager (always rendered underneath) ===== -->
+  <section id="view-app" class="view">
     <header class="appbar">
       <div class="brand">
         <span class="logo small">⬇</span>
@@ -41,12 +19,27 @@
         <button class="tab active" data-tab="files" role="tab">Files</button>
         <button class="tab" data-tab="upload" role="tab">Upload</button>
       </nav>
-      <div class="conn" id="conn-status" title="Connection status">
-        <span class="dot"></span>
+      <div class="toolbar-right">
+        <button id="view-toggle" class="btn ghost icon-btn" title="Toggle view">☰</button>
+        <button id="sort-btn" class="btn ghost icon-btn" title="Sort">⇅</button>
+        <div class="conn" id="conn-status" title="Connection status">
+          <span class="dot"></span>
+        </div>
       </div>
     </header>
 
-    <!-- Files tab -->
+    <!-- Sort dropdown -->
+    <div id="sort-dropdown" class="dropdown" hidden>
+      <div class="dropdown-item" data-sort="name-asc">Name A–Z</div>
+      <div class="dropdown-item" data-sort="name-desc">Name Z–A</div>
+      <div class="dropdown-item" data-sort="size-asc">Size (smallest first)</div>
+      <div class="dropdown-item" data-sort="size-desc">Size (largest first)</div>
+      <div class="dropdown-item" data-sort="date-asc">Date (oldest first)</div>
+      <div class="dropdown-item" data-sort="date-desc">Date (newest first)</div>
+      <div class="dropdown-item" data-sort="type-asc">Type A–Z</div>
+      <div class="dropdown-item" data-sort="type-desc">Type Z–A</div>
+    </div>
+
     <div class="tabpanel" id="tab-files">
       <div class="filter-bar">
         <input type="search" id="filter-search" placeholder="Search files…" autocomplete="off" />
@@ -75,14 +68,16 @@
         <button id="clear-filters" class="btn ghost" title="Clear filters" hidden>✕</button>
         <span id="filter-count" class="filter-count" hidden></span>
       </div>
-      <div class="toolbar">
+
+      <div class="file-toolbar" id="file-toolbar">
         <label class="checkbox">
           <input type="checkbox" id="select-all" />
           <span>Select all</span>
         </label>
-        <button id="download-zip" class="btn primary" disabled>Download selected as ZIP</button>
+        <button id="download-zip" class="btn primary" disabled>Download selected</button>
         <button id="refresh" class="btn ghost" title="Refresh">⟳</button>
       </div>
+
       <div id="file-list" class="file-list" aria-live="polite"></div>
       <p id="files-empty" class="muted empty" hidden>No files in the shared folder.</p>
     </div>
@@ -102,6 +97,28 @@
 
     <div id="toast" class="toast" hidden></div>
   </section>
+
+  <!-- ===== PIN Modal (overlay) ===== -->
+  <div id="pin-overlay" class="pin-overlay">
+    <div class="pin-card">
+      <div class="logo">⬇</div>
+      <h1>LocalDrop</h1>
+      <p class="muted">Enter the 6-digit PIN shown on the phone.</p>
+      <form id="pin-form" autocomplete="off">
+        <input
+          id="pin-input"
+          class="pin-input"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          maxlength="6"
+          placeholder="••••••"
+          aria-label="PIN"
+          autofocus
+        />
+      </form>
+      <p id="pin-error" class="error" hidden>Wrong PIN. Try again.</p>
+    </div>
+  </div>
 
   <script src="app.js" defer></script>
 </body>

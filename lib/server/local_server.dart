@@ -361,40 +361,67 @@ class LocalServer {
     final transformer = MimeMultipartTransformer(boundary);
     final parts = transformer.bind(req.read());
     String? savedPath;
+    String? savedName;
 
-    await for (final part in parts) {
-      final cd = part.headers['content-disposition'];
-      if (cd == null) continue;
-      final disp = HeaderValue.parse(cd);
-      final filename = disp.parameters['filename'];
-      if (filename == null || filename.isEmpty) continue;
+    try {
+      await for (final part in parts) {
+        final cd = part.headers['content-disposition'];
+        if (cd == null) continue;
+        final disp = HeaderValue.parse(cd);
+        final filename = disp.parameters['filename'];
+        if (filename == null || filename.isEmpty) continue;
 
-      final safe = _safeName(filename);
-      final target = File(p.join(sharedFolder, safe));
-      final transfer = transferManager.create(
-        id,
-        safe,
-        TransferDirection.upload,
-      );
-      final raf = await target.open(mode: FileMode.write);
-      try {
-        await for (final chunk in part) {
-          if (chunk.isEmpty) continue;
-          await raf.writeFrom(chunk);
-          transferManager.addBytes(id, chunk.length);
-        }
-        await raf.close();
-      } catch (e) {
-        await raf.close().catchError((_) {});
-        transferManager.fail(id, 'write-error');
-        return shelf.Response(
-          500,
-          body: jsonErrorBody('write-failed'),
-          headers: _jsonHeaders(),
+        final rawName = p.basename(filename);
+        final safe = _safeName(rawName);
+        savedName = safe;
+        final target = File(p.join(sharedFolder, safe));
+        final transfer = transferManager.create(
+          id,
+          safe,
+          TransferDirection.upload,
         );
+        final raf = await target.open(mode: FileMode.write);
+        try {
+          await for (final chunk in part) {
+            if (chunk.isEmpty) continue;
+            await raf.writeFrom(chunk);
+            transferManager.addBytes(id, chunk.length);
+          }
+          await raf.close();
+        } catch (e) {
+          await raf.close().catchError((_) {});
+          transferManager.fail(id, 'write-error');
+          stderr.writeln('upload write-error: $e  file=$safe');
+          return shelf.Response(
+            500,
+            body: jsonErrorBody('write-failed'),
+            headers: _jsonHeaders(),
+          );
+        }
+        transferManager.complete(id);
+        savedPath = target.path;
       }
-      transferManager.complete(id);
-      savedPath = target.path;
+    } on SocketException catch (e) {
+      stderr.writeln('upload socket-error id=$id name=$savedName: $e');
+      return shelf.Response(
+        500,
+        body: jsonErrorBody('connection-lost'),
+        headers: _jsonHeaders(),
+      );
+    } on FormatException catch (e) {
+      stderr.writeln('upload format-error id=$id name=$savedName: $e');
+      return shelf.Response(
+        400,
+        body: jsonErrorBody('invalid-filename'),
+        headers: _jsonHeaders(),
+      );
+    } catch (e) {
+      stderr.writeln('upload unexpected-error id=$id name=$savedName: $e');
+      return shelf.Response(
+        500,
+        body: jsonErrorBody('upload-failed'),
+        headers: _jsonHeaders(),
+      );
     }
 
     if (savedPath == null) {
@@ -476,8 +503,12 @@ class LocalServer {
         yield chunk;
       }
       transferManager.complete(transfer.id);
-    } catch (_) {
+    } on SocketException catch (e) {
+      transferManager.fail(transfer.id, 'connection-lost');
+      stderr.writeln('download aborted ${transfer.fileName}: $e');
+    } catch (e) {
       transferManager.fail(transfer.id, 'read-error');
+      stderr.writeln('download error ${transfer.fileName}: $e');
     }
   }
 
@@ -497,8 +528,11 @@ class LocalServer {
         'Cache-Control': 'no-store',
       };
 
-  String _attachment(String filename) =>
-      'attachment; filename="${Uri.encodeComponent(filename)}"';
+  String _attachment(String filename) {
+    final encoded = Uri.encodeComponent(filename).replaceAll("'", "%27");
+    final sanitized = filename.replaceAll(RegExp(r'[^\x00-\x7F]'), '?').replaceAll('"', "'");
+    return 'attachment; filename="$sanitized"; filename*=UTF-8\'\'$encoded';
+  }
 
   void reportProgress() {
     onEvent?.call({

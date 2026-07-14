@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_controller.dart';
+import 'log_viewer_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -68,6 +69,17 @@ class SettingsScreen extends StatelessWidget {
                 },
               ),
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.terminal_rounded),
+            title: const Text('Server logs'),
+            subtitle: const Text('View recent server logs for debugging.'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LogViewerScreen()),
+              );
+            },
           ),
           const SizedBox(height: 16),
           const Padding(

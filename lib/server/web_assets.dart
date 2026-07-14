@@ -46,7 +46,11 @@ class WebAssets {
     </div>
 
     <div class="tabpanel" id="tab-files">
-      <div class="filter-bar">
+      <!-- Breadcrumb -->
+      <nav id="breadcrumb" class="breadcrumb" aria-label="Folder path"></nav>
+
+      <!-- Search / Filter / Sort row -->
+      <div class="topbar">
         <input type="search" id="filter-search" placeholder="Search files…" autocomplete="off" />
         <select id="filter-type">
           <option value="all">All types</option>
@@ -57,19 +61,7 @@ class WebAssets {
           <option value="archive">Archives</option>
           <option value="other">Other</option>
         </select>
-        <select id="filter-size">
-          <option value="all">Any size</option>
-          <option value="small">Under 1 MB</option>
-          <option value="medium">1 MB – 100 MB</option>
-          <option value="large">Over 100 MB</option>
-        </select>
-        <select id="filter-date">
-          <option value="all">Any time</option>
-          <option value="today">Today</option>
-          <option value="week">This week</option>
-          <option value="month">This month</option>
-          <option value="older">Older</option>
-        </select>
+        <button id="sort-btn-inline" class="btn ghost icon-btn" title="Sort">⇅</button>
         <button id="clear-filters" class="btn ghost" title="Clear filters" hidden>✕</button>
         <span id="filter-count" class="filter-count" hidden></span>
       </div>
@@ -84,7 +76,7 @@ class WebAssets {
       </div>
 
       <div id="file-list" class="file-list" aria-live="polite"></div>
-      <p id="files-empty" class="muted empty" hidden>No files in the shared folder.</p>
+      <p id="files-empty" class="muted empty" hidden>No files in this folder.</p>
     </div>
 
     <!-- Upload tab -->
@@ -190,6 +182,7 @@ body {
 }
 
 /* ---------- App shell ---------- */
+#view-app { justify-content: flex-start; padding: 0; }
 .appbar {
   width: 100%;
   display: flex;
@@ -225,6 +218,67 @@ body {
 .conn.bad .dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(225,29,72,0.18); }
 
 .tabpanel { width: 100%; max-width: 880px; margin: 0 auto; padding: 1rem 1.25rem; }
+
+/* ---------- Breadcrumb ---------- */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+.breadcrumb-sep { color: var(--text-secondary); opacity: 0.6; }
+.breadcrumb-item {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: background 0.1s ease;
+}
+.breadcrumb-item:hover { background: var(--surface-2); }
+.breadcrumb-item.current { color: var(--text); font-weight: 600; cursor: default; }
+.breadcrumb-item.current:hover { background: none; }
+
+/* ---------- Topbar ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+.topbar input[type="search"] {
+  flex: 1 1 180px;
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.topbar input[type="search"]:focus { border-color: var(--primary); }
+.topbar select {
+  padding: 0.55rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.9rem;
+  outline: none;
+}
+.filter-count {
+  font-size: 0.8rem;
+  color: var(--primary);
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
 
 /* ---------- Sort dropdown ---------- */
 .dropdown {
@@ -306,6 +360,7 @@ body {
   transition: background 0.1s ease, border-color 0.15s ease;
   cursor: pointer;
   user-select: none;
+  position: relative;
 }
 .file-row:hover { background: var(--surface-2); }
 .file-row.selected {
@@ -345,6 +400,25 @@ body {
 .file-row .btn.ghost { opacity: 0; transition: opacity 0.1s ease; }
 .file-row:hover .btn.ghost,
 .file-row.selected .btn.ghost { opacity: 1; }
+
+/* ---------- Download progress ---------- */
+.file-progress {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 0 0 12px 12px;
+  overflow: hidden;
+}
+.file-progress > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--primary);
+  transition: width 0.2s ease;
+}
+.file-row.downloading .file-progress { display: block; }
+.file-row .file-progress { display: none; }
 
 /* ---------- Grid view ---------- */
 .file-list.grid-view {
@@ -510,6 +584,7 @@ body {
     viewApp: document.getElementById("view-app"),
     fileList: document.getElementById("file-list"),
     filesEmpty: document.getElementById("files-empty"),
+    breadcrumb: document.getElementById("breadcrumb"),
     selectAll: document.getElementById("select-all"),
     downloadZip: document.getElementById("download-zip"),
     refresh: document.getElementById("refresh"),
@@ -521,12 +596,11 @@ body {
     toast: document.getElementById("toast"),
     filterSearch: document.getElementById("filter-search"),
     filterType: document.getElementById("filter-type"),
-    filterSize: document.getElementById("filter-size"),
-    filterDate: document.getElementById("filter-date"),
     clearFilters: document.getElementById("clear-filters"),
     filterCount: document.getElementById("filter-count"),
     viewToggle: document.getElementById("view-toggle"),
     sortBtn: document.getElementById("sort-btn"),
+    sortBtnInline: document.getElementById("sort-btn-inline"),
     sortDropdown: document.getElementById("sort-dropdown"),
     fileToolbar: document.getElementById("file-toolbar"),
   };
@@ -537,12 +611,19 @@ body {
     filteredFiles: [],
     selected: new Set(),
     uploads: new Map(),
-    filters: { search: "", type: "all", size: "all", date: "all" },
+    filters: { search: "", type: "all" },
     viewMode: "list",
     sortKey: "name",
     sortDir: "asc",
-    isSelecting: false,
+    currentPath: "",
   };
+
+  /* ---------- logging ---------- */
+  function log(area, message) {
+    const ts = new Date().toISOString().split('T')[1].slice(0, -1);
+    const entry = `[${ts}] [${area}] ${message}`;
+    console.log(entry);
+  }
 
   /* ---------- helpers ---------- */
   function authHeaders() {
@@ -555,7 +636,9 @@ body {
     options = options || {};
     options.credentials = "same-origin";
     options.headers = Object.assign(authHeaders(), options.headers || {});
+    log('http', `request ${path}`);
     const res = await fetch(path, options);
+    log('http', `response ${path} status=${res.status}`);
     if (res.status === 401) {
       logout();
       throw new Error("unauthorized");
@@ -591,7 +674,8 @@ body {
     return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
-  function iconFor(name) {
+  function iconFor(name, isDirectory) {
+    if (isDirectory) return "📁";
     const ext = (name.split(".").pop() || "").toLowerCase();
     const map = {
       png: "🖼", jpg: "🖼", jpeg: "🖼", gif: "🖼", webp: "🖼", svg: "🖼", heic: "🖼",
@@ -603,7 +687,6 @@ body {
       apk: "📦", exe: "⚙",
     };
     if (map[ext]) return map[ext];
-    if (["folder", "dir"].includes(ext)) return "📁";
     return "📄";
   }
 
@@ -630,7 +713,7 @@ body {
   function matchType(name, type) {
     if (type === "all") return true;
     const ext = (name.split(".").pop() || "").toLowerCase();
-    return (TYPE_MAP[type] || []).includes(ext) || (type === "other" && !(TYPE_MAP.document || []).includes(ext) && !(TYPE_MAP.image || []).includes(ext));
+    return (TYPE_MAP[type] || []).includes(ext) || (type === "other" && !Object.values(TYPE_MAP).some(arr => arr.includes(ext)));
   }
 
   function matchSize(size, range) {
@@ -661,6 +744,7 @@ body {
     const key = state.sortKey;
     const dir = state.sortDir === "asc" ? 1 : -1;
     return files.slice().sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
       let va, vb;
       if (key === "name") { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
       else if (key === "size") { va = a.size || 0; vb = b.size || 0; }
@@ -678,8 +762,6 @@ body {
     state.filteredFiles = state.files.filter((file) => {
       if (f.search && !file.name.toLowerCase().includes(f.search.toLowerCase())) return false;
       if (!matchType(file.name, f.type)) return false;
-      if (!matchSize(file.size, f.size)) return false;
-      if (!matchDate(file.modified, f.date)) return false;
       return true;
     });
     state.filteredFiles = sortFiles(state.filteredFiles);
@@ -690,7 +772,7 @@ body {
 
   function updateFilterUI() {
     const f = state.filters;
-    const active = (f.search ? 1 : 0) + (f.type !== "all" ? 1 : 0) + (f.size !== "all" ? 1 : 0) + (f.date !== "all" ? 1 : 0);
+    const active = (f.search ? 1 : 0) + (f.type !== "all" ? 1 : 0);
     els.clearFilters.hidden = active === 0;
     els.filterCount.hidden = active === 0;
     els.filterCount.textContent = active + " filter" + (active === 1 ? "" : "s") + " active";
@@ -703,14 +785,10 @@ body {
         const parsed = JSON.parse(saved);
         state.filters.search = parsed.search || "";
         state.filters.type = parsed.type || "all";
-        state.filters.size = parsed.size || "all";
-        state.filters.date = parsed.date || "all";
       }
     } catch (_) {}
     els.filterSearch.value = state.filters.search;
     els.filterType.value = state.filters.type;
-    els.filterSize.value = state.filters.size;
-    els.filterDate.value = state.filters.date;
   }
 
   function saveFilters() {
@@ -720,12 +798,38 @@ body {
   }
 
   function clearAllFilters() {
-    state.filters = { search: "", type: "all", size: "all", date: "all" };
+    state.filters = { search: "", type: "all" };
     els.filterSearch.value = "";
     els.filterType.value = "all";
-    els.filterSize.value = "all";
-    els.filterDate.value = "all";
     applyFilters();
+  }
+
+  /* ---------- breadcrumbs ---------- */
+  function renderBreadcrumb() {
+    els.breadcrumb.innerHTML = "";
+    const parts = state.currentPath ? state.currentPath.split("/").filter(Boolean) : [];
+    const allParts = ["Home", ...parts];
+
+    allParts.forEach((part, index) => {
+      if (index > 0) {
+        const sep = document.createElement("span");
+        sep.className = "breadcrumb-sep";
+        sep.textContent = "/";
+        els.breadcrumb.appendChild(sep);
+      }
+      const btn = document.createElement("button");
+      btn.className = "breadcrumb-item";
+      if (index === allParts.length - 1) btn.classList.add("current");
+      btn.textContent = part;
+      if (index < allParts.length - 1) {
+        btn.addEventListener("click", () => {
+          const targetPath = parts.slice(0, index).join("/");
+          state.currentPath = targetPath;
+          loadFiles();
+        });
+      }
+      els.breadcrumb.appendChild(btn);
+    });
   }
 
   /* ---------- auth / PIN modal ---------- */
@@ -746,6 +850,7 @@ body {
     e.preventDefault();
     const pin = els.pinInput.value.trim();
     if (pin.length !== 6) return;
+    log('auth', 'attempt');
     try {
       const res = await fetch("/api/auth", {
         method: "POST",
@@ -754,15 +859,18 @@ body {
         body: JSON.stringify({ pin }),
       });
       if (!res.ok) {
+        log('auth', 'failure');
         els.pinError.hidden = false;
         els.pinInput.value = "";
         return;
       }
       const data = await res.json();
       state.token = data.token;
+      log('auth', 'success');
       hidePinModal();
       loadFiles();
     } catch (err) {
+      log('auth', 'error: ' + err.message);
       els.pinError.hidden = false;
       els.pinError.textContent = "Connection failed. Is the phone still on the network?";
     }
@@ -777,6 +885,7 @@ body {
   function logout() {
     state.token = null;
     state.selected.clear();
+    state.currentPath = "";
     showPinModal();
   }
 
@@ -784,10 +893,12 @@ body {
   async function loadFiles() {
     if (!state.token) return;
     try {
-      const res = await api("/api/files");
+      const pathParam = state.currentPath ? `?path=${encodeURIComponent(state.currentPath)}` : "";
+      const res = await api("/api/files" + pathParam);
       const data = await res.json();
       state.files = data.files || [];
       applyFilters();
+      renderBreadcrumb();
       setConn(true);
     } catch (err) {
       if (err.message !== "unauthorized") {
@@ -812,14 +923,15 @@ body {
       const checked = state.selected.has(f.name);
       row.innerHTML = `
         <input type="checkbox" class="file-check" ${checked ? "checked" : ""} />
-        <div class="file-icon">${iconFor(f.name)}</div>
+        <div class="file-icon">${iconFor(f.name, f.isDirectory)}</div>
         <div class="file-meta">
           <div class="file-name">${escapeHtml(f.name)}</div>
-          <div class="file-sub">${fmtSize(f.size)} · ${fmtDate(f.modified)}</div>
+          <div class="file-sub">${f.isDirectory ? 'Folder' : fmtSize(f.size) + ' · ' + fmtDate(f.modified)}</div>
         </div>
         <div class="file-actions">
-          <button class="btn ghost dl" title="Download">↓</button>
-        </div>`;
+          ${f.isDirectory ? '' : '<button class="btn ghost dl" title="Download">↓</button>'}
+        </div>
+        <div class="file-progress"><span></span></div>`;
 
       const checkbox = row.querySelector(".file-check");
       checkbox.addEventListener("change", (e) => {
@@ -832,12 +944,18 @@ body {
 
       row.addEventListener("click", (e) => {
         if (e.target === checkbox) return;
+        if (f.isDirectory) {
+          const newPath = state.currentPath ? state.currentPath + "/" + f.name : f.name;
+          state.currentPath = newPath;
+          loadFiles();
+          return;
+        }
         if (state.isSelecting || e.shiftKey || e.ctrlKey || e.metaKey) {
           if (state.selected.has(f.name)) state.selected.delete(f.name);
           else state.selected.add(f.name);
           renderFiles();
         } else {
-          downloadFile(f.name);
+          downloadFile(f.name, row);
         }
       });
 
@@ -848,10 +966,12 @@ body {
         renderFiles();
       });
 
-      row.querySelector(".dl").addEventListener("click", (e) => {
-        e.stopPropagation();
-        downloadFile(f.name);
-      });
+      if (!f.isDirectory) {
+        row.querySelector(".dl").addEventListener("click", (e) => {
+          e.stopPropagation();
+          downloadFile(f.name, row);
+        });
+      }
 
       els.fileList.appendChild(row);
     }
@@ -882,27 +1002,23 @@ body {
     applyFilters();
   });
 
-  els.filterSize.addEventListener("change", () => {
-    state.filters.size = els.filterSize.value;
-    applyFilters();
-  });
-
-  els.filterDate.addEventListener("change", () => {
-    state.filters.date = els.filterDate.value;
-    applyFilters();
-  });
-
   els.clearFilters.addEventListener("click", clearAllFilters);
 
   els.viewToggle.addEventListener("click", () => {
     state.viewMode = state.viewMode === "list" ? "grid" : "list";
-    els.viewToggle.textContent = state.viewMode === "list" ? "☰" : "☰";
     renderFiles();
   });
 
+  function openSortDropdown() {
+    els.sortDropdown.hidden = !els.sortDropdown.hidden;
+  }
   els.sortBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    els.sortDropdown.hidden = !els.sortDropdown.hidden;
+    openSortDropdown();
+  });
+  els.sortBtnInline.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openSortDropdown();
   });
 
   document.addEventListener("click", () => {
@@ -940,21 +1056,55 @@ body {
     }
   });
 
-  async function downloadFile(name) {
-    try {
-      const res = await api("/api/download/" + encodeURIComponent(name));
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch (err) {
-      showToast("Download failed.");
-    }
+  async function downloadFile(name, row) {
+    log('download', 'start name=' + name);
+    const progressBar = row ? row.querySelector('.file-progress > span') : null;
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", "/api/download/" + encodeURIComponent(name), true);
+    xhr.setRequestHeader("X-Requested-With", "fetch");
+    if (state.token) xhr.setRequestHeader("Authorization", "Bearer " + state.token);
+    xhr.responseType = "blob";
+
+    xhr.onprogress = (e) => {
+      if (e.lengthComputable && progressBar) {
+        const p = (e.loaded / e.total) * 100;
+        progressBar.style.width = p.toFixed(1) + "%";
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const blob = xhr.response;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        if (progressBar) {
+          progressBar.style.width = "100%";
+          setTimeout(() => { progressBar.style.width = "0"; }, 1200);
+        }
+        log('download', 'complete name=' + name);
+      } else {
+        log('download', 'failed name=' + name + ' status=' + xhr.status);
+        showToast("Download failed.");
+        if (progressBar) progressBar.style.width = "0";
+      }
+      if (row) row.classList.remove("downloading");
+    };
+
+    xhr.onerror = () => {
+      log('download', 'error name=' + name);
+      showToast("Download error.");
+      if (progressBar) progressBar.style.width = "0";
+      if (row) row.classList.remove("downloading");
+    };
+
+    if (row) row.classList.add("downloading");
+    xhr.send();
   }
 
   /* ---------- tabs ---------- */
@@ -1003,20 +1153,21 @@ body {
     const id = uuid();
     const fd = new FormData();
     fd.append("file", file, file.name);
+    log('upload', 'start name=' + file.name + ' size=' + file.size);
 
     const row = document.createElement("div");
     row.className = "up-row";
     row.innerHTML = `
       <div class="up-head">
         <span class="up-name">${escapeHtml(file.name)}</span>
-        <span class="up-sub">0%</span>
+        <span class="up-sub pct-head">0%</span>
       </div>
       <div class="progress"><span></span></div>
-      <div class="up-sub" style="margin-top:.35rem">0 / ${fmtSize(file.size)} · preparing…</div>`;
+      <div class="up-sub pct-foot">0 / ${fmtSize(file.size)} · preparing…</div>`;
     els.uploadList.prepend(row);
     const bar = row.querySelector(".progress > span");
-    const pct = row.querySelector(".up-sub:last-child");
-    const subHead = row.querySelector(".up-sub:first-of-type");
+    const pct = row.querySelector(".pct-foot");
+    const subHead = row.querySelector(".pct-head");
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/upload?id=" + id);
@@ -1044,6 +1195,7 @@ body {
         bar.style.width = "100%";
         subHead.textContent = "Done";
         pct.textContent = fmtSize(file.size) + " · uploaded";
+        log('upload', 'complete name=' + file.name);
         loadFiles();
       } else if (xhr.status === 401) {
         logout();
@@ -1055,6 +1207,7 @@ body {
           if (err.error) reason = err.error;
         } catch (_) {}
         pct.textContent = reason;
+        log('upload', 'failed name=' + file.name + ' reason=' + reason);
       }
     };
 
@@ -1062,17 +1215,20 @@ body {
       if (retries < maxRetries) {
         retries++;
         subHead.textContent = "Retrying (" + (retries + 1) + "/" + (maxRetries + 1) + ")…";
+        log('upload', 'retry name=' + file.name + ' attempt=' + (retries + 1));
         setTimeout(() => xhr.send(fd), 1500 * (retries + 1));
       } else {
         subHead.textContent = "Failed";
         pct.textContent = "Connection lost";
         setConn(false);
+        log('upload', 'failed name=' + file.name + ' reason=connection-lost');
       }
     };
 
     xhr.ontimeout = () => {
       subHead.textContent = "Timeout";
       pct.textContent = "Upload timed out — try again";
+      log('upload', 'timeout name=' + file.name);
     };
 
     xhr.send(fd);

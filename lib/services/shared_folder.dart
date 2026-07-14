@@ -68,6 +68,14 @@ class SettingsStore {
     return AppSettings(folderPath: await defaultSharedFolder());
   }
 
+  Future<bool> exists() async {
+    try {
+      return await File(await _filePath).exists();
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> save(AppSettings settings) async {
     final file = File(await _filePath);
     await file.writeAsString(jsonEncode(settings.toJson()));

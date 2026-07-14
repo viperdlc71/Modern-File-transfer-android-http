@@ -57,6 +57,7 @@ body {
 }
 
 /* ---------- App shell ---------- */
+#view-app { justify-content: flex-start; padding: 0; }
 .appbar {
   width: 100%;
   display: flex;
@@ -92,6 +93,67 @@ body {
 .conn.bad .dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(225,29,72,0.18); }
 
 .tabpanel { width: 100%; max-width: 880px; margin: 0 auto; padding: 1rem 1.25rem; }
+
+/* ---------- Breadcrumb ---------- */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+.breadcrumb-sep { color: var(--text-secondary); opacity: 0.6; }
+.breadcrumb-item {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: background 0.1s ease;
+}
+.breadcrumb-item:hover { background: var(--surface-2); }
+.breadcrumb-item.current { color: var(--text); font-weight: 600; cursor: default; }
+.breadcrumb-item.current:hover { background: none; }
+
+/* ---------- Topbar ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+.topbar input[type="search"] {
+  flex: 1 1 180px;
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.topbar input[type="search"]:focus { border-color: var(--primary); }
+.topbar select {
+  padding: 0.55rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.9rem;
+  outline: none;
+}
+.filter-count {
+  font-size: 0.8rem;
+  color: var(--primary);
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
 
 /* ---------- Sort dropdown ---------- */
 .dropdown {
@@ -173,6 +235,7 @@ body {
   transition: background 0.1s ease, border-color 0.15s ease;
   cursor: pointer;
   user-select: none;
+  position: relative;
 }
 .file-row:hover { background: var(--surface-2); }
 .file-row.selected {
@@ -212,6 +275,25 @@ body {
 .file-row .btn.ghost { opacity: 0; transition: opacity 0.1s ease; }
 .file-row:hover .btn.ghost,
 .file-row.selected .btn.ghost { opacity: 1; }
+
+/* ---------- Download progress ---------- */
+.file-progress {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 0 0 12px 12px;
+  overflow: hidden;
+}
+.file-progress > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--primary);
+  transition: width 0.2s ease;
+}
+.file-row.downloading .file-progress { display: block; }
+.file-row .file-progress { display: none; }
 
 /* ---------- Grid view ---------- */
 .file-list.grid-view {

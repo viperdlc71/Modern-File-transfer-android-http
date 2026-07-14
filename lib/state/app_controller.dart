@@ -34,6 +34,7 @@ class AppController extends ChangeNotifier {
   bool storagePermissionGranted = false;
 
   List<Transfer> transfers = const [];
+  List<String> logs = const [];
 
   AppController(this._settings);
 
@@ -47,10 +48,34 @@ class AppController extends ChangeNotifier {
     await _requestPermissions();
     FlutterForegroundTask.addTaskDataCallback(_onTaskData);
 
-    if (_settings.folderPath.isNotEmpty) {
+    final hasSettings = await _store.exists();
+    if (hasSettings && _settings.folderPath.isNotEmpty) {
       final accessible = await ensureFolder(_settings.folderPath);
       storagePermissionGranted = accessible;
     }
+    storagePermissionAsked = true;
+    notifyListeners();
+
+    // If a service is already running (e.g. survived app close), restore state
+    // from the config we previously saved for the task isolate.
+    if (await FlutterForegroundTask.isRunningService) {
+      try {
+        final raw = await FlutterForegroundTask.getData(key: kConfigKey);
+        if (raw != null) {
+          final decoded = raw is String ? jsonDecode(raw) : raw;
+          final cfg = ServerConfig.fromJson(decoded as Map<String, dynamic>);
+          isRunning = true;
+          pin = cfg.pin;
+          port = cfg.port;
+          folder = cfg.folder;
+          urls = cfg.urls ?? [];
+        }
+      } catch (_) {
+        // ignore — treat as not running
+      }
+    }
+    notifyListeners();
+  }
     storagePermissionAsked = true;
     notifyListeners();
 
@@ -213,6 +238,33 @@ class AppController extends ChangeNotifier {
     );
     await _store.save(_settings);
     notifyListeners();
+  }
+
+  Future<void> fetchLogs() async {
+    if (!isRunning || port == null) return;
+    try {
+      final uri = Uri.parse('http://127.0.0.1:${port!}/api/logs');
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 2);
+      final request = await client.getUrl(uri);
+      request.headers.set('Authorization', 'Bearer ${_getCurrentToken()}');
+      final response = await request.close();
+      final body = await response.transform(utf8.decoder).join();
+      client.close();
+      if (response.statusCode == 200) {
+        logs = body.split('\n').where((l) => l.isNotEmpty).toList();
+        notifyListeners();
+      }
+    } catch (_) {
+      // ignore log fetch errors
+    }
+  }
+
+  String? _getCurrentToken() {
+    // Token is managed by the foreground service; we don't expose it directly.
+    // For localhost log fetches, the service accepts requests without auth if
+    // they come from the device itself. This is a convenience shortcut.
+    return null;
   }
 
   void _onTaskData(Object data) {

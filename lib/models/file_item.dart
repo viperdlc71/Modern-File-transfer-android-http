@@ -5,12 +5,16 @@ class FileItem {
   final int size;
   final int modifiedSeconds;
   final String type;
+  final bool isDirectory;
+  final String path;
 
   const FileItem({
     required this.name,
     required this.size,
     required this.modifiedSeconds,
     required this.type,
+    this.isDirectory = false,
+    this.path = '',
   });
 
   Map<String, dynamic> toJson() => {
@@ -18,6 +22,8 @@ class FileItem {
         'size': size,
         'modified': modifiedSeconds,
         'type': type,
+        'isDirectory': isDirectory,
+        'path': path,
       };
 
   factory FileItem.fromJson(Map<String, dynamic> m) => FileItem(
@@ -25,6 +31,8 @@ class FileItem {
         size: m['size'] as int,
         modifiedSeconds: m['modified'] as int,
         type: (m['type'] as String?) ?? '',
+        isDirectory: m['isDirectory'] as bool? ?? false,
+        path: (m['path'] as String?) ?? '',
       );
 }
 

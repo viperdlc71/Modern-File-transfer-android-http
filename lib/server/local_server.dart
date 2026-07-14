@@ -23,6 +23,8 @@ class LocalServer {
   late final TransferManager transferManager;
   String sharedFolder;
   final void Function(Map<String, dynamic> event)? onEvent;
+  final List<String> _logs = [];
+  static const int _maxLogs = 500;
 
   HttpServer? _server;
   int? port;
@@ -38,6 +40,13 @@ class LocalServer {
     transferManager = TransferManager(onChanged: reportProgress);
     _router = shelf_router.Router();
     _registerRoutes();
+  }
+
+  void _log(String message) {
+    final ts = DateTime.now().toIso8601String();
+    _logs.add('[$ts] $message');
+    if (_logs.length > _maxLogs) _logs.removeRange(0, _logs.length - _maxLogs);
+    stderr.writeln(message);
   }
 
   // ---------------------------------------------------------------------------
@@ -95,15 +104,23 @@ class LocalServer {
     _router.get('/api/download-zip', _downloadZipHandler);
     _router.post('/api/upload', _uploadHandler);
     _router.get('/api/progress/<id>', _progressHandler);
+    _router.get('/api/logs', _logsHandler);
   }
 
   shelf.Middleware _authMiddleware() {
     return (shelf.Handler inner) {
       return (shelf.Request req) async {
         final path = req.requestedUri.path;
-        if (_isPublic(path)) return inner(req);
+        if (_isPublic(path)) {
+          _log('public ${req.method} $path');
+          return inner(req);
+        }
         final token = extractToken(req.headers);
-        if (sessionManager.isValid(token)) return inner(req);
+        if (sessionManager.isValid(token)) {
+          _log('auth ok ${req.method} $path');
+          return inner(req);
+        }
+        _log('auth failed ${req.method} $path');
         return shelf.Response(
           401,
           body: jsonErrorBody('unauthorized'),
@@ -118,7 +135,8 @@ class LocalServer {
       path == '/styles.css' ||
       path == '/app.js' ||
       path == '/favicon.ico' ||
-      path.startsWith('/api/auth');
+      path.startsWith('/api/auth') ||
+      path == '/api/logs';
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -152,6 +170,7 @@ class LocalServer {
       pin = null;
     }
     if (pin != null && sessionManager.checkPin(pin)) {
+      _log('auth success');
       final token = sessionManager.createSession();
       return shelf.Response.ok(
         jsonEncode({'token': token}),
@@ -161,6 +180,7 @@ class LocalServer {
         },
       );
     }
+    _log('auth failure');
     return shelf.Response(
       401,
       body: jsonErrorBody('bad-pin'),
@@ -169,27 +189,52 @@ class LocalServer {
   }
 
   Future<shelf.Response> _filesHandler(shelf.Request req) async {
-    final dir = Directory(sharedFolder);
+    final rawPath = req.url.queryParameters['path'] ?? '';
+    final requested = p.normalize(p.join(sharedFolder, rawPath));
+    final base = p.normalize(sharedFolder);
+    if (!requested.startsWith(base) && requested != base) {
+      return shelf.Response(
+        400,
+        body: jsonErrorBody('invalid-path'),
+        headers: _jsonHeaders(),
+      );
+    }
+    final dir = Directory(requested);
     if (!await dir.exists()) {
       return shelf.Response(
-        500,
-        body: jsonEncode({'error': 'folder-missing', 'path': sharedFolder}),
+        404,
+        body: jsonErrorBody('folder-not-found'),
         headers: _jsonHeaders(),
       );
     }
     final items = <FileItem>[];
     await for (final entity in dir.list(followLinks: false)) {
+      final name = p.basename(entity.path);
       if (entity is File) {
         final stat = await entity.stat();
         items.add(FileItem(
-          name: p.basename(entity.path),
+          name: name,
           size: stat.size,
           modifiedSeconds: stat.modified.millisecondsSinceEpoch ~/ 1000,
           type: p.extension(entity.path).replaceFirst('.', '').toLowerCase(),
+          path: rawPath,
+        ));
+      } else if (entity is Directory) {
+        items.add(FileItem(
+          name: name,
+          size: 0,
+          modifiedSeconds: 0,
+          type: 'dir',
+          isDirectory: true,
+          path: rawPath,
         ));
       }
     }
-    items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    items.sort((a, b) {
+      if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    _log('files listed path=${rawPath.isEmpty ? '/' : rawPath} count=${items.length}');
     return shelf.Response.ok(
       encodeFileItems(items),
       headers: _jsonHeaders(),
@@ -204,9 +249,13 @@ class LocalServer {
     try {
       file = _resolve(name);
     } catch (_) {
+      _log('download not-found name=$name');
       return _notFound();
     }
-    if (!await file.exists()) return _notFound();
+    if (!await file.exists()) {
+      _log('download missing name=$name');
+      return _notFound();
+    }
     final stat = await file.stat();
     final id = _newTransferId();
     final transfer = transferManager.create(
@@ -215,6 +264,7 @@ class LocalServer {
       TransferDirection.download,
       totalBytes: stat.size,
     );
+    _log('download started id=$id name=${p.basename(file.path)} size=${stat.size}');
 
     final rangeHeader = req.headers['range'];
     if (rangeHeader != null) {
@@ -230,6 +280,7 @@ class LocalServer {
             : stat.size - 1;
         if (end >= stat.size) end = stat.size - 1;
         if (start > end || start >= stat.size) {
+          _log('download range-invalid id=$id name=${p.basename(file.path)}');
           return shelf.Response(
             416,
             headers: {'Content-Range': 'bytes */${stat.size}'},
@@ -273,6 +324,7 @@ class LocalServer {
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
         .toList();
+    _log('zip requested names=${names.join(',')}');
     final entries = <(File, String)>[];
     var total = 0;
     for (final n in names) {
@@ -288,6 +340,7 @@ class LocalServer {
       }
     }
     if (entries.isEmpty) {
+      _log('zip no-valid-files');
       return shelf.Response(
         400,
         body: jsonErrorBody('no-valid-files'),
@@ -301,6 +354,7 @@ class LocalServer {
       TransferDirection.download,
       totalBytes: total,
     );
+    _log('zip started id=$id entries=${entries.length} total=$total');
     final controller = StreamController<List<int>>();
     unawaited(_streamZip(entries, controller, transfer));
     return shelf.Response(
@@ -333,16 +387,20 @@ class LocalServer {
       }
       await encoder.close();
       transferManager.complete(transfer.id);
+      _log('zip completed id=${transfer.id} bytes=${transfer.transferredBytes}');
     } catch (e) {
       transferManager.fail(transfer.id, 'zip-error');
+      _log('zip error id=${transfer.id}: $e');
       if (!controller.isClosed) controller.close();
     }
   }
 
   Future<shelf.Response> _uploadHandler(shelf.Request req) async {
     final id = req.url.queryParameters['id'] ?? _newTransferId();
+    _log('upload started id=$id');
     final contentType = req.headers['content-type'];
     if (contentType == null) {
+      _log('upload missing-content-type id=$id');
       return shelf.Response(
         400,
         body: jsonErrorBody('missing-content-type'),
@@ -351,6 +409,7 @@ class LocalServer {
     }
     final boundary = HeaderValue.parse(contentType).parameters['boundary'];
     if (boundary == null || boundary.isEmpty) {
+      _log('upload missing-boundary id=$id');
       return shelf.Response(
         400,
         body: jsonErrorBody('missing-boundary'),
@@ -380,18 +439,22 @@ class LocalServer {
           safe,
           TransferDirection.upload,
         );
+        _log('upload file id=$id name=$safe');
         final raf = await target.open(mode: FileMode.write);
         try {
+          var totalBytes = 0;
           await for (final chunk in part) {
             if (chunk.isEmpty) continue;
             await raf.writeFrom(chunk);
+            totalBytes += chunk.length;
             transferManager.addBytes(id, chunk.length);
           }
           await raf.close();
+          _log('upload file-written id=$id name=$safe bytes=$totalBytes');
         } catch (e) {
           await raf.close().catchError((_) {});
           transferManager.fail(id, 'write-error');
-          stderr.writeln('upload write-error: $e  file=$safe');
+          _log('upload write-error id=$id name=$safe: $e');
           return shelf.Response(
             500,
             body: jsonErrorBody('write-failed'),
@@ -402,21 +465,21 @@ class LocalServer {
         savedPath = target.path;
       }
     } on SocketException catch (e) {
-      stderr.writeln('upload socket-error id=$id name=$savedName: $e');
+      _log('upload socket-error id=$id name=$savedName: $e');
       return shelf.Response(
         500,
         body: jsonErrorBody('connection-lost'),
         headers: _jsonHeaders(),
       );
     } on FormatException catch (e) {
-      stderr.writeln('upload format-error id=$id name=$savedName: $e');
+      _log('upload format-error id=$id name=$savedName: $e');
       return shelf.Response(
         400,
         body: jsonErrorBody('invalid-filename'),
         headers: _jsonHeaders(),
       );
     } catch (e) {
-      stderr.writeln('upload unexpected-error id=$id name=$savedName: $e');
+      _log('upload unexpected-error id=$id name=$savedName: $e');
       return shelf.Response(
         500,
         body: jsonErrorBody('upload-failed'),
@@ -425,15 +488,25 @@ class LocalServer {
     }
 
     if (savedPath == null) {
+      _log('upload no-file-part id=$id');
       return shelf.Response(
         400,
         body: jsonErrorBody('no-file-part'),
         headers: _jsonHeaders(),
       );
     }
+    _log('upload completed id=$id path=$savedPath');
     return shelf.Response.ok(
       jsonEncode({'ok': true, 'path': savedPath}),
       headers: _jsonHeaders(),
+    );
+  }
+
+  shelf.Response _logsHandler(shelf.Request req) {
+    final lines = _logs.join('\n');
+    return shelf.Response.ok(
+      lines,
+      headers: {'Content-Type': 'text/plain; charset=utf-8'},
     );
   }
 
@@ -486,6 +559,19 @@ class LocalServer {
     return File(full);
   }
 
+  Directory _resolveDir(String name) {
+    final clean = name
+        .split('/')
+        .where((seg) => seg.isNotEmpty && seg != '.' && seg != '..')
+        .join('/');
+    final full = p.normalize(p.join(sharedFolder, clean));
+    final base = p.normalize(sharedFolder);
+    if (!full.startsWith('$base${p.separator}') && full != base) {
+      throw const FormatException('path traversal');
+    }
+    return Directory(full);
+  }
+
   String _safeName(String name) {
     final base = p.basename(name);
     return base.replaceAll(RegExp(r'[^\w.\- ]'), '_');
@@ -503,12 +589,13 @@ class LocalServer {
         yield chunk;
       }
       transferManager.complete(transfer.id);
+      _log('download completed id=${transfer.id} name=${transfer.fileName} bytes=${transfer.transferredBytes}');
     } on SocketException catch (e) {
       transferManager.fail(transfer.id, 'connection-lost');
-      stderr.writeln('download aborted ${transfer.fileName}: $e');
+      _log('download aborted id=${transfer.id} name=${transfer.fileName}: $e');
     } catch (e) {
       transferManager.fail(transfer.id, 'read-error');
-      stderr.writeln('download error ${transfer.fileName}: $e');
+      _log('download error id=${transfer.id} name=${transfer.fileName}: $e');
     }
   }
 

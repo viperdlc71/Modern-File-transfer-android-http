@@ -41,7 +41,11 @@
     </div>
 
     <div class="tabpanel" id="tab-files">
-      <div class="filter-bar">
+      <!-- Breadcrumb -->
+      <nav id="breadcrumb" class="breadcrumb" aria-label="Folder path"></nav>
+
+      <!-- Search / Filter / Sort row -->
+      <div class="topbar">
         <input type="search" id="filter-search" placeholder="Search files…" autocomplete="off" />
         <select id="filter-type">
           <option value="all">All types</option>
@@ -52,19 +56,7 @@
           <option value="archive">Archives</option>
           <option value="other">Other</option>
         </select>
-        <select id="filter-size">
-          <option value="all">Any size</option>
-          <option value="small">Under 1 MB</option>
-          <option value="medium">1 MB – 100 MB</option>
-          <option value="large">Over 100 MB</option>
-        </select>
-        <select id="filter-date">
-          <option value="all">Any time</option>
-          <option value="today">Today</option>
-          <option value="week">This week</option>
-          <option value="month">This month</option>
-          <option value="older">Older</option>
-        </select>
+        <button id="sort-btn-inline" class="btn ghost icon-btn" title="Sort">⇅</button>
         <button id="clear-filters" class="btn ghost" title="Clear filters" hidden>✕</button>
         <span id="filter-count" class="filter-count" hidden></span>
       </div>
@@ -79,7 +71,7 @@
       </div>
 
       <div id="file-list" class="file-list" aria-live="polite"></div>
-      <p id="files-empty" class="muted empty" hidden>No files in the shared folder.</p>
+      <p id="files-empty" class="muted empty" hidden>No files in this folder.</p>
     </div>
 
     <!-- Upload tab -->

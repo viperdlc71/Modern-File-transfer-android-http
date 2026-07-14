@@ -23,10 +23,10 @@ class AppController extends ChangeNotifier {
 
   bool isRunning = false;
   bool isStarting = false;
-  String? localIp;
+  List<String> localIps = [];
   int? port;
   String? pin;
-  String? url;
+  List<String> urls = [];
   String? folder;
   String? error;
   bool permissionsGranted = false;
@@ -57,7 +57,7 @@ class AppController extends ChangeNotifier {
           pin = cfg.pin;
           port = cfg.port;
           folder = cfg.folder;
-          url = cfg.url;
+          urls = (cfg.urls as List<dynamic>?)?.map((e) => e as String).toList() ?? [];
         }
       } catch (_) {
         // ignore — treat as not running
@@ -113,8 +113,8 @@ class AppController extends ChangeNotifier {
     error = null;
     notifyListeners();
 
-    final ip = await _resolveLocalIp();
-    localIp = ip;
+    final ips = await _resolveLocalIps();
+    localIps = ips;
 
     final effectivePin = _settings.regeneratePin
         ? SessionManager.generatePin()
@@ -138,14 +138,14 @@ class AppController extends ChangeNotifier {
 
     pin = effectivePin;
     port = _settings.port;
-    url = 'http://$ip:${_settings.port}';
+    urls = ips.map((ip) => 'http://$ip:${_settings.port}').toList();
 
     final config = ServerConfig(
       pin: effectivePin,
       port: _settings.port,
       folder: usableFolder,
       regeneratePin: _settings.regeneratePin,
-      url: url,
+      urls: urls,
     );
 
     try {
@@ -222,10 +222,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<String> _resolveLocalIp() async {
+  Future<List<String>> _resolveLocalIps() async {
+    final ips = <String>[];
     try {
       final wifi = await NetworkInfo().getWifiIP();
-      if (wifi != null && wifi.isNotEmpty) return wifi;
+      if (wifi != null && wifi.isNotEmpty && !ips.contains(wifi)) {
+        ips.add(wifi);
+      }
     } catch (_) {
       // fall through to interface scan
     }
@@ -237,20 +240,14 @@ class AppController extends ChangeNotifier {
       for (final iface in interfaces) {
         for (final addr in iface.addresses) {
           final s = addr.address;
-          if (s.startsWith('192.168.') ||
-              s.startsWith('10.') ||
-              s.startsWith('172.')) {
-            return s;
-          }
+          if (!ips.contains(s)) ips.add(s);
         }
-      }
-      if (interfaces.isNotEmpty) {
-        return interfaces.first.addresses.first.address;
       }
     } catch (_) {
       // ignore
     }
-    return '127.0.0.1';
+    if (ips.isEmpty) ips.add('127.0.0.1');
+    return ips;
   }
 
   @override

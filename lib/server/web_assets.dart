@@ -53,6 +53,33 @@ class WebAssets {
 
     <!-- Files tab -->
     <div class="tabpanel" id="tab-files">
+      <div class="filter-bar">
+        <input type="search" id="filter-search" placeholder="Search files…" autocomplete="off" />
+        <select id="filter-type">
+          <option value="all">All types</option>
+          <option value="image">Images</option>
+          <option value="video">Videos</option>
+          <option value="audio">Audio</option>
+          <option value="document">Documents</option>
+          <option value="archive">Archives</option>
+          <option value="other">Other</option>
+        </select>
+        <select id="filter-size">
+          <option value="all">Any size</option>
+          <option value="small">Under 1 MB</option>
+          <option value="medium">1 MB – 100 MB</option>
+          <option value="large">Over 100 MB</option>
+        </select>
+        <select id="filter-date">
+          <option value="all">Any time</option>
+          <option value="today">Today</option>
+          <option value="week">This week</option>
+          <option value="month">This month</option>
+          <option value="older">Older</option>
+        </select>
+        <button id="clear-filters" class="btn ghost" title="Clear filters" hidden>✕</button>
+        <span id="filter-count" class="filter-count" hidden></span>
+      </div>
       <div class="toolbar">
         <label class="checkbox">
           <input type="checkbox" id="select-all" />
@@ -258,6 +285,42 @@ body {
 .file-sub { font-size: 0.8rem; color: var(--muted); }
 .file-actions { display: flex; align-items: center; gap: 0.6rem; flex: none; }
 
+/* ---------- Filter bar ---------- */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+.filter-bar input[type="search"] {
+  flex: 1 1 180px;
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.filter-bar input[type="search"]:focus { border-color: var(--primary); }
+.filter-bar select {
+  padding: 0.55rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.9rem;
+  outline: none;
+}
+.filter-count {
+  font-size: 0.8rem;
+  color: var(--primary);
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
+
 /* ---------- Dropzone ---------- */
 .dropzone {
   border: 2px dashed var(--border);
@@ -348,13 +411,21 @@ body {
     uploadList: document.getElementById("upload-list"),
     conn: document.getElementById("conn-status"),
     toast: document.getElementById("toast"),
+    filterSearch: document.getElementById("filter-search"),
+    filterType: document.getElementById("filter-type"),
+    filterSize: document.getElementById("filter-size"),
+    filterDate: document.getElementById("filter-date"),
+    clearFilters: document.getElementById("clear-filters"),
+    filterCount: document.getElementById("filter-count"),
   };
 
   const state = {
     token: null,
     files: [],
+    filteredFiles: [],
     selected: new Set(),
     uploads: new Map(),
+    filters: { search: "", type: "all", size: "all", date: "all" },
   };
 
   /* ---------- helpers ---------- */
@@ -370,7 +441,6 @@ body {
     options.headers = Object.assign(authHeaders(), options.headers || {});
     const res = await fetch(path, options);
     if (res.status === 401) {
-      // Session expired
       logout();
       throw new Error("unauthorized");
     }
@@ -432,6 +502,99 @@ body {
       (Date.now().toString(36) + Math.random().toString(36).slice(2));
   }
 
+  /* ---------- filters ---------- */
+  const TYPE_MAP = {
+    image: ["png","jpg","jpeg","gif","webp","svg","heic","bmp","ico"],
+    video: ["mp4","mov","mkv","webm","avi","flv","wmv"],
+    audio: ["mp3","wav","ogg","flac","m4a","aac","wma"],
+    document: ["pdf","doc","docx","txt","md","rtf","odt","ppt","pptx","xls","xlsx","csv"],
+    archive: ["zip","rar","7z","gz","tar","bz2"],
+  };
+
+  function matchType(name, type) {
+    if (type === "all") return true;
+    const ext = (name.split(".").pop() || "").toLowerCase();
+    return (TYPE_MAP[type] || []).includes(ext);
+  }
+
+  function matchSize(size, range) {
+    if (range === "all" || size == null) return range === "all";
+    const mb = size / (1024 * 1024);
+    switch (range) {
+      case "small": return mb < 1;
+      case "medium": return mb >= 1 && mb <= 100;
+      case "large": return mb > 100;
+      default: return true;
+    }
+  }
+
+  function matchDate(ts, range) {
+    if (range === "all" || !ts) return range === "all";
+    const now = Date.now() / 1000;
+    const diff = now - ts;
+    switch (range) {
+      case "today": return diff < 86400;
+      case "week": return diff < 7 * 86400;
+      case "month": return diff < 30 * 86400;
+      case "older": return diff >= 30 * 86400;
+      default: return true;
+    }
+  }
+
+  function applyFilters() {
+    const f = state.filters;
+    state.filteredFiles = state.files.filter((file) => {
+      if (f.search && !file.name.toLowerCase().includes(f.search.toLowerCase())) return false;
+      if (!matchType(file.name, f.type)) return false;
+      if (!matchSize(file.size, f.size)) return false;
+      if (!matchDate(file.modified, f.date)) return false;
+      return true;
+    });
+    renderFiles();
+    updateFilterUI();
+    saveFilters();
+  }
+
+  function updateFilterUI() {
+    const f = state.filters;
+    const active = (f.search ? 1 : 0) + (f.type !== "all" ? 1 : 0) + (f.size !== "all" ? 1 : 0) + (f.date !== "all" ? 1 : 0);
+    els.clearFilters.hidden = active === 0;
+    els.filterCount.hidden = active === 0;
+    els.filterCount.textContent = active + " filter" + (active === 1 ? "" : "s") + " active";
+  }
+
+  function loadFilters() {
+    try {
+      const saved = localStorage.getItem("localdrop_filters");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        state.filters.search = parsed.search || "";
+        state.filters.type = parsed.type || "all";
+        state.filters.size = parsed.size || "all";
+        state.filters.date = parsed.date || "all";
+      }
+    } catch (_) {}
+    els.filterSearch.value = state.filters.search;
+    els.filterType.value = state.filters.type;
+    els.filterSize.value = state.filters.size;
+    els.filterDate.value = state.filters.date;
+  }
+
+  function saveFilters() {
+    try {
+      localStorage.setItem("localdrop_filters", JSON.stringify(state.filters));
+    } catch (_) {}
+  }
+
+  function clearAllFilters() {
+    state.filters = { search: "", type: "all", size: "all", date: "all" };
+    els.filterSearch.value = "";
+    els.filterType.value = "all";
+    els.filterSize.value = "all";
+    els.filterDate.value = "all";
+    applyFilters();
+  }
+
   /* ---------- auth ---------- */
   els.pinForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -469,12 +632,15 @@ body {
     els.viewApp.hidden = true;
     els.viewPin.hidden = false;
     els.body.dataset.view = "pin";
+    els.pinInput.value = "";
+    els.pinError.hidden = true;
   }
 
   async function enterApp() {
     els.viewPin.hidden = true;
     els.viewApp.hidden = false;
     els.body.dataset.view = "app";
+    loadFilters();
     await loadFiles();
   }
 
@@ -484,8 +650,7 @@ body {
       const res = await api("/api/files");
       const data = await res.json();
       state.files = data.files || [];
-      state.selected.clear();
-      renderFiles();
+      applyFilters();
       setConn(true);
     } catch (err) {
       if (err.message !== "unauthorized") {
@@ -496,9 +661,10 @@ body {
   }
 
   function renderFiles() {
+    const list = state.filteredFiles;
     els.fileList.innerHTML = "";
-    els.filesEmpty.hidden = state.files.length > 0;
-    for (const f of state.files) {
+    els.filesEmpty.hidden = list.length > 0;
+    for (const f of list) {
       const row = document.createElement("div");
       row.className = "file-row";
       row.dataset.name = f.name;
@@ -528,36 +694,74 @@ body {
 
   function updateSelectionUI() {
     els.downloadZip.disabled = state.selected.size === 0;
-    els.selectAll.checked = state.files.length > 0 && state.selected.size === state.files.length;
+    els.selectAll.checked = state.filteredFiles.length > 0 && state.selected.size === state.filteredFiles.length;
   }
 
   els.selectAll.addEventListener("change", (e) => {
-    if (e.target.checked) state.files.forEach((f) => state.selected.add(f.name));
+    if (e.target.checked) state.filteredFiles.forEach((f) => state.selected.add(f.name));
     else state.selected.clear();
     renderFiles();
   });
 
   els.refresh.addEventListener("click", loadFiles);
 
-  els.downloadZip.addEventListener("click", () => {
-    const names = Array.from(state.selected);
-    if (!names.length) return;
-    const q = encodeURIComponent(names.join(","));
-    const a = document.createElement("a");
-    a.href = "/api/download-zip?files=" + q;
-    a.download = "localdrop.zip";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  els.filterSearch.addEventListener("input", () => {
+    state.filters.search = els.filterSearch.value;
+    applyFilters();
   });
 
-  function downloadFile(name) {
-    const a = document.createElement("a");
-    a.href = "/api/download/" + encodeURIComponent(name);
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  els.filterType.addEventListener("change", () => {
+    state.filters.type = els.filterType.value;
+    applyFilters();
+  });
+
+  els.filterSize.addEventListener("change", () => {
+    state.filters.size = els.filterSize.value;
+    applyFilters();
+  });
+
+  els.filterDate.addEventListener("change", () => {
+    state.filters.date = els.filterDate.value;
+    applyFilters();
+  });
+
+  els.clearFilters.addEventListener("click", clearAllFilters);
+
+  els.downloadZip.addEventListener("click", async () => {
+    const names = Array.from(state.selected);
+    if (!names.length) return;
+    try {
+      const q = encodeURIComponent(names.join(","));
+      const res = await api("/api/download-zip?files=" + q);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "localdrop.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      showToast("Download failed.");
+    }
+  });
+
+  async function downloadFile(name) {
+    try {
+      const res = await api("/api/download/" + encodeURIComponent(name));
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      showToast("Download failed.");
+    }
   }
 
   /* ---------- tabs ---------- */
@@ -622,13 +826,22 @@ body {
     xhr.setRequestHeader("X-Requested-With", "fetch");
     if (state.token) xhr.setRequestHeader("Authorization", "Bearer " + state.token);
     xhr.withCredentials = true;
+    xhr.timeout = 0;
 
     xhr.upload.onprogress = (e) => {
-      const p = e.total ? (e.loaded / e.total) * 100 : 0;
-      bar.style.width = p.toFixed(1) + "%";
-      subHead.textContent = p.toFixed(0) + "%";
-      pct.textContent = fmtSize(e.loaded) + " / " + fmtSize(e.total);
+      if (e.lengthComputable) {
+        const p = (e.loaded / e.total) * 100;
+        bar.style.width = p.toFixed(1) + "%";
+        subHead.textContent = p.toFixed(0) + "%";
+        pct.textContent = fmtSize(e.loaded) + " / " + fmtSize(e.total);
+      } else {
+        pct.textContent = fmtSize(e.loaded) + " uploaded";
+      }
     };
+
+    let retries = 0;
+    const maxRetries = 1;
+
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         bar.style.width = "100%";
@@ -642,11 +855,24 @@ body {
         pct.textContent = "Upload error (" + xhr.status + ")";
       }
     };
+
     xhr.onerror = () => {
-      subHead.textContent = "Failed";
-      pct.textContent = "Connection lost";
-      setConn(false);
+      if (retries < maxRetries) {
+        retries++;
+        subHead.textContent = "Retrying…";
+        setTimeout(() => xhr.send(fd), 1000);
+      } else {
+        subHead.textContent = "Failed";
+        pct.textContent = "Connection lost";
+        setConn(false);
+      }
     };
+
+    xhr.ontimeout = () => {
+      subHead.textContent = "Timeout";
+      pct.textContent = "Upload timed out";
+    };
+
     xhr.send(fd);
   }
 

@@ -48,6 +48,33 @@
 
     <!-- Files tab -->
     <div class="tabpanel" id="tab-files">
+      <div class="filter-bar">
+        <input type="search" id="filter-search" placeholder="Search files…" autocomplete="off" />
+        <select id="filter-type">
+          <option value="all">All types</option>
+          <option value="image">Images</option>
+          <option value="video">Videos</option>
+          <option value="audio">Audio</option>
+          <option value="document">Documents</option>
+          <option value="archive">Archives</option>
+          <option value="other">Other</option>
+        </select>
+        <select id="filter-size">
+          <option value="all">Any size</option>
+          <option value="small">Under 1 MB</option>
+          <option value="medium">1 MB – 100 MB</option>
+          <option value="large">Over 100 MB</option>
+        </select>
+        <select id="filter-date">
+          <option value="all">Any time</option>
+          <option value="today">Today</option>
+          <option value="week">This week</option>
+          <option value="month">This month</option>
+          <option value="older">Older</option>
+        </select>
+        <button id="clear-filters" class="btn ghost" title="Clear filters" hidden>✕</button>
+        <span id="filter-count" class="filter-count" hidden></span>
+      </div>
       <div class="toolbar">
         <label class="checkbox">
           <input type="checkbox" id="select-all" />

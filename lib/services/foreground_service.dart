@@ -17,14 +17,14 @@ class ServerConfig {
   final int port;
   final String folder;
   final bool regeneratePin;
-  final String? url;
+  final List<String>? urls;
 
   const ServerConfig({
     required this.pin,
     required this.port,
     required this.folder,
     this.regeneratePin = true,
-    this.url,
+    this.urls,
   });
 
   factory ServerConfig.fromJson(Map<String, dynamic> m) => ServerConfig(
@@ -32,7 +32,7 @@ class ServerConfig {
         port: m['port'] as int,
         folder: m['folder'] as String,
         regeneratePin: m['regeneratePin'] as bool? ?? true,
-        url: m['url'] as String?,
+        urls: m['urls'] != null ? List<String>.from(m['urls']) : null,
       );
 
   Map<String, dynamic> toJson() => {
@@ -40,7 +40,7 @@ class ServerConfig {
         'port': port,
         'folder': folder,
         'regeneratePin': regeneratePin,
-        'url': url,
+        'urls': urls,
       };
 }
 
@@ -79,7 +79,7 @@ class _LocalDropTaskHandler extends TaskHandler {
       final port = await _server!.start(preferredPort: config.port);
       FlutterForegroundTask.updateService(
         notificationTitle: 'LocalDrop is sharing files',
-        notificationText: '${config.url ?? 'http://localhost:$port'}  ·  PIN ${config.pin}',
+        notificationText: '${(config.urls ?? ['http://localhost:$port']).join(' / ')}  ·  PIN ${config.pin}',
       );
       FlutterForegroundTask.sendDataToMain({
         'type': 'started',
@@ -162,7 +162,7 @@ Future<ServiceRequestResult> startForegroundService(ServerConfig config) async {
   return FlutterForegroundTask.startService(
     serviceId: 256,
     notificationTitle: 'LocalDrop is sharing files',
-    notificationText: '${config.url ?? ''}  ·  PIN ${config.pin}',
+    notificationText: '${(config.urls ?? ['']).join(' / ')}  ·  PIN ${config.pin}',
     notificationIcon: null,
     notificationButtons: const [
       NotificationButton(id: 'stop', text: 'Stop'),

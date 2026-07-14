@@ -23,13 +23,21 @@
     uploadList: document.getElementById("upload-list"),
     conn: document.getElementById("conn-status"),
     toast: document.getElementById("toast"),
+    filterSearch: document.getElementById("filter-search"),
+    filterType: document.getElementById("filter-type"),
+    filterSize: document.getElementById("filter-size"),
+    filterDate: document.getElementById("filter-date"),
+    clearFilters: document.getElementById("clear-filters"),
+    filterCount: document.getElementById("filter-count"),
   };
 
   const state = {
     token: null,
     files: [],
+    filteredFiles: [],
     selected: new Set(),
     uploads: new Map(),
+    filters: { search: "", type: "all", size: "all", date: "all" },
   };
 
   /* ---------- helpers ---------- */
@@ -45,7 +53,6 @@
     options.headers = Object.assign(authHeaders(), options.headers || {});
     const res = await fetch(path, options);
     if (res.status === 401) {
-      // Session expired
       logout();
       throw new Error("unauthorized");
     }
@@ -107,6 +114,99 @@
       (Date.now().toString(36) + Math.random().toString(36).slice(2));
   }
 
+  /* ---------- filters ---------- */
+  const TYPE_MAP = {
+    image: ["png","jpg","jpeg","gif","webp","svg","heic","bmp","ico"],
+    video: ["mp4","mov","mkv","webm","avi","flv","wmv"],
+    audio: ["mp3","wav","ogg","flac","m4a","aac","wma"],
+    document: ["pdf","doc","docx","txt","md","rtf","odt","ppt","pptx","xls","xlsx","csv"],
+    archive: ["zip","rar","7z","gz","tar","bz2"],
+  };
+
+  function matchType(name, type) {
+    if (type === "all") return true;
+    const ext = (name.split(".").pop() || "").toLowerCase();
+    return (TYPE_MAP[type] || []).includes(ext);
+  }
+
+  function matchSize(size, range) {
+    if (range === "all" || size == null) return range === "all";
+    const mb = size / (1024 * 1024);
+    switch (range) {
+      case "small": return mb < 1;
+      case "medium": return mb >= 1 && mb <= 100;
+      case "large": return mb > 100;
+      default: return true;
+    }
+  }
+
+  function matchDate(ts, range) {
+    if (range === "all" || !ts) return range === "all";
+    const now = Date.now() / 1000;
+    const diff = now - ts;
+    switch (range) {
+      case "today": return diff < 86400;
+      case "week": return diff < 7 * 86400;
+      case "month": return diff < 30 * 86400;
+      case "older": return diff >= 30 * 86400;
+      default: return true;
+    }
+  }
+
+  function applyFilters() {
+    const f = state.filters;
+    state.filteredFiles = state.files.filter((file) => {
+      if (f.search && !file.name.toLowerCase().includes(f.search.toLowerCase())) return false;
+      if (!matchType(file.name, f.type)) return false;
+      if (!matchSize(file.size, f.size)) return false;
+      if (!matchDate(file.modified, f.date)) return false;
+      return true;
+    });
+    renderFiles();
+    updateFilterUI();
+    saveFilters();
+  }
+
+  function updateFilterUI() {
+    const f = state.filters;
+    const active = (f.search ? 1 : 0) + (f.type !== "all" ? 1 : 0) + (f.size !== "all" ? 1 : 0) + (f.date !== "all" ? 1 : 0);
+    els.clearFilters.hidden = active === 0;
+    els.filterCount.hidden = active === 0;
+    els.filterCount.textContent = active + " filter" + (active === 1 ? "" : "s") + " active";
+  }
+
+  function loadFilters() {
+    try {
+      const saved = localStorage.getItem("localdrop_filters");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        state.filters.search = parsed.search || "";
+        state.filters.type = parsed.type || "all";
+        state.filters.size = parsed.size || "all";
+        state.filters.date = parsed.date || "all";
+      }
+    } catch (_) {}
+    els.filterSearch.value = state.filters.search;
+    els.filterType.value = state.filters.type;
+    els.filterSize.value = state.filters.size;
+    els.filterDate.value = state.filters.date;
+  }
+
+  function saveFilters() {
+    try {
+      localStorage.setItem("localdrop_filters", JSON.stringify(state.filters));
+    } catch (_) {}
+  }
+
+  function clearAllFilters() {
+    state.filters = { search: "", type: "all", size: "all", date: "all" };
+    els.filterSearch.value = "";
+    els.filterType.value = "all";
+    els.filterSize.value = "all";
+    els.filterDate.value = "all";
+    applyFilters();
+  }
+
   /* ---------- auth ---------- */
   els.pinForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -144,12 +244,15 @@
     els.viewApp.hidden = true;
     els.viewPin.hidden = false;
     els.body.dataset.view = "pin";
+    els.pinInput.value = "";
+    els.pinError.hidden = true;
   }
 
   async function enterApp() {
     els.viewPin.hidden = true;
     els.viewApp.hidden = false;
     els.body.dataset.view = "app";
+    loadFilters();
     await loadFiles();
   }
 
@@ -159,8 +262,7 @@
       const res = await api("/api/files");
       const data = await res.json();
       state.files = data.files || [];
-      state.selected.clear();
-      renderFiles();
+      applyFilters();
       setConn(true);
     } catch (err) {
       if (err.message !== "unauthorized") {
@@ -171,9 +273,10 @@
   }
 
   function renderFiles() {
+    const list = state.filteredFiles;
     els.fileList.innerHTML = "";
-    els.filesEmpty.hidden = state.files.length > 0;
-    for (const f of state.files) {
+    els.filesEmpty.hidden = list.length > 0;
+    for (const f of list) {
       const row = document.createElement("div");
       row.className = "file-row";
       row.dataset.name = f.name;
@@ -203,36 +306,74 @@
 
   function updateSelectionUI() {
     els.downloadZip.disabled = state.selected.size === 0;
-    els.selectAll.checked = state.files.length > 0 && state.selected.size === state.files.length;
+    els.selectAll.checked = state.filteredFiles.length > 0 && state.selected.size === state.filteredFiles.length;
   }
 
   els.selectAll.addEventListener("change", (e) => {
-    if (e.target.checked) state.files.forEach((f) => state.selected.add(f.name));
+    if (e.target.checked) state.filteredFiles.forEach((f) => state.selected.add(f.name));
     else state.selected.clear();
     renderFiles();
   });
 
   els.refresh.addEventListener("click", loadFiles);
 
-  els.downloadZip.addEventListener("click", () => {
-    const names = Array.from(state.selected);
-    if (!names.length) return;
-    const q = encodeURIComponent(names.join(","));
-    const a = document.createElement("a");
-    a.href = "/api/download-zip?files=" + q;
-    a.download = "localdrop.zip";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  els.filterSearch.addEventListener("input", () => {
+    state.filters.search = els.filterSearch.value;
+    applyFilters();
   });
 
-  function downloadFile(name) {
-    const a = document.createElement("a");
-    a.href = "/api/download/" + encodeURIComponent(name);
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  els.filterType.addEventListener("change", () => {
+    state.filters.type = els.filterType.value;
+    applyFilters();
+  });
+
+  els.filterSize.addEventListener("change", () => {
+    state.filters.size = els.filterSize.value;
+    applyFilters();
+  });
+
+  els.filterDate.addEventListener("change", () => {
+    state.filters.date = els.filterDate.value;
+    applyFilters();
+  });
+
+  els.clearFilters.addEventListener("click", clearAllFilters);
+
+  els.downloadZip.addEventListener("click", async () => {
+    const names = Array.from(state.selected);
+    if (!names.length) return;
+    try {
+      const q = encodeURIComponent(names.join(","));
+      const res = await api("/api/download-zip?files=" + q);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "localdrop.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      showToast("Download failed.");
+    }
+  });
+
+  async function downloadFile(name) {
+    try {
+      const res = await api("/api/download/" + encodeURIComponent(name));
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      showToast("Download failed.");
+    }
   }
 
   /* ---------- tabs ---------- */
@@ -297,13 +438,22 @@
     xhr.setRequestHeader("X-Requested-With", "fetch");
     if (state.token) xhr.setRequestHeader("Authorization", "Bearer " + state.token);
     xhr.withCredentials = true;
+    xhr.timeout = 0;
 
     xhr.upload.onprogress = (e) => {
-      const p = e.total ? (e.loaded / e.total) * 100 : 0;
-      bar.style.width = p.toFixed(1) + "%";
-      subHead.textContent = p.toFixed(0) + "%";
-      pct.textContent = fmtSize(e.loaded) + " / " + fmtSize(e.total);
+      if (e.lengthComputable) {
+        const p = (e.loaded / e.total) * 100;
+        bar.style.width = p.toFixed(1) + "%";
+        subHead.textContent = p.toFixed(0) + "%";
+        pct.textContent = fmtSize(e.loaded) + " / " + fmtSize(e.total);
+      } else {
+        pct.textContent = fmtSize(e.loaded) + " uploaded";
+      }
     };
+
+    let retries = 0;
+    const maxRetries = 1;
+
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         bar.style.width = "100%";
@@ -317,11 +467,24 @@
         pct.textContent = "Upload error (" + xhr.status + ")";
       }
     };
+
     xhr.onerror = () => {
-      subHead.textContent = "Failed";
-      pct.textContent = "Connection lost";
-      setConn(false);
+      if (retries < maxRetries) {
+        retries++;
+        subHead.textContent = "Retrying…";
+        setTimeout(() => xhr.send(fd), 1000);
+      } else {
+        subHead.textContent = "Failed";
+        pct.textContent = "Connection lost";
+        setConn(false);
+      }
     };
+
+    xhr.ontimeout = () => {
+      subHead.textContent = "Timeout";
+      pct.textContent = "Upload timed out";
+    };
+
     xhr.send(fd);
   }
 

@@ -169,6 +169,42 @@ body {
 .file-sub { font-size: 0.8rem; color: var(--muted); }
 .file-actions { display: flex; align-items: center; gap: 0.6rem; flex: none; }
 
+/* ---------- Filter bar ---------- */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+.filter-bar input[type="search"] {
+  flex: 1 1 180px;
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.filter-bar input[type="search"]:focus { border-color: var(--primary); }
+.filter-bar select {
+  padding: 0.55rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.9rem;
+  outline: none;
+}
+.filter-count {
+  font-size: 0.8rem;
+  color: var(--primary);
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
+
 /* ---------- Dropzone ---------- */
 .dropzone {
   border: 2px dashed var(--border);

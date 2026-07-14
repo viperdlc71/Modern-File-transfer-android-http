@@ -1,0 +1,16 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+  errors:
+    unused_element: warning
+    unused_field: warning
+    dead_code: warning
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    always_use_package_imports: true
+    avoid_print: false

@@ -1,0 +1,664 @@
+// GENERATED — mirrors assets/web/{index.html,styles.css,app.js}.
+// Embedded as constants so the foreground-service isolate (no rootBundle) can serve them.
+// If you edit the web assets, regenerate this file.
+
+class WebAssets {
+  static const String indexHtml = r'''<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <title>LocalDrop</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-view="pin">
+  <!-- ===== PIN view ===== -->
+  <section id="view-pin" class="view">
+    <div class="card pin-card">
+      <div class="logo">⬇</div>
+      <h1>LocalDrop</h1>
+      <p class="muted">Enter the 6-digit PIN shown on the phone.</p>
+      <form id="pin-form" autocomplete="off">
+        <input
+          id="pin-input"
+          class="pin-input"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          maxlength="6"
+          placeholder="••••••"
+          aria-label="PIN"
+          autofocus
+        />
+      </form>
+      <p id="pin-error" class="error" hidden>Wrong PIN. Try again.</p>
+    </div>
+  </section>
+
+  <!-- ===== App view ===== -->
+  <section id="view-app" class="view" hidden>
+    <header class="appbar">
+      <div class="brand">
+        <span class="logo small">⬇</span>
+        <strong>LocalDrop</strong>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="files" role="tab">Files</button>
+        <button class="tab" data-tab="upload" role="tab">Upload</button>
+      </nav>
+      <div class="conn" id="conn-status" title="Connection status">
+        <span class="dot"></span>
+      </div>
+    </header>
+
+    <!-- Files tab -->
+    <div class="tabpanel" id="tab-files">
+      <div class="toolbar">
+        <label class="checkbox">
+          <input type="checkbox" id="select-all" />
+          <span>Select all</span>
+        </label>
+        <button id="download-zip" class="btn primary" disabled>Download selected as ZIP</button>
+        <button id="refresh" class="btn ghost" title="Refresh">⟳</button>
+      </div>
+      <div id="file-list" class="file-list" aria-live="polite"></div>
+      <p id="files-empty" class="muted empty" hidden>No files in the shared folder.</p>
+    </div>
+
+    <!-- Upload tab -->
+    <div class="tabpanel" id="tab-upload" hidden>
+      <div id="dropzone" class="dropzone">
+        <div class="dz-inner">
+          <div class="dz-icon">⤴</div>
+          <p><strong>Drop files here</strong> or</p>
+          <button id="pick-files" class="btn primary" type="button">Choose files</button>
+          <input id="file-input" type="file" multiple hidden />
+        </div>
+      </div>
+      <div id="upload-list" class="upload-list"></div>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+  </section>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
+''';
+  static const String indexHtmlType = "text/html; charset=utf-8";
+
+  static const String stylesCss = r''':root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #eef0f3;
+  --text: #14181f;
+  --muted: #6b7480;
+  --border: #e2e5ea;
+  --primary: #2563eb;
+  --primary-ink: #ffffff;
+  --danger: #e11d48;
+  --ok: #16a34a;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-2: #1f2630;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --border: #2a313c;
+    --primary: #4d8bff;
+    --primary-ink: #0d1117;
+    --danger: #ff5c7c;
+    --ok: #3fb950;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.35);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.muted { color: var(--muted); }
+.error { color: var(--danger); font-size: 0.9rem; margin-top: 0.75rem; }
+.empty { text-align: center; padding: 2rem 0; }
+
+.view {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+/* ---------- PIN ---------- */
+.pin-card {
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  padding: 2rem 1.5rem;
+}
+.logo {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+.logo.small { font-size: 1.1rem; }
+.pin-card h1 { margin: 0.5rem 0 0.25rem; font-size: 1.6rem; }
+.pin-input {
+  margin-top: 1.25rem;
+  width: 100%;
+  font-size: 2rem;
+  letter-spacing: 0.5rem;
+  text-align: center;
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.pin-input:focus { border-color: var(--primary); }
+
+/* ---------- App shell ---------- */
+#view-app { justify-content: flex-start; padding: 0; }
+.appbar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.brand { display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem; }
+.tabs { display: flex; gap: 0.25rem; margin-left: auto; }
+.tab {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.tab.active { background: var(--surface-2); color: var(--text); }
+.conn .dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: background 0.2s ease;
+}
+.conn.ok .dot { background: var(--ok); box-shadow: 0 0 0 4px rgba(63,185,80,0.18); }
+.conn.bad .dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(225,29,72,0.18); }
+
+.tabpanel { width: 100%; max-width: 880px; margin: 0 auto; padding: 1.25rem; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.checkbox { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--muted); cursor: pointer; }
+.btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s ease, opacity 0.15s ease;
+}
+.btn:active { transform: scale(0.98); }
+.btn.primary { background: var(--primary); color: var(--primary-ink); border-color: transparent; }
+.btn.ghost { background: transparent; border-color: transparent; font-size: 1.1rem; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---------- File list ---------- */
+.file-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+  box-shadow: var(--shadow);
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+.file-row:hover { border-color: var(--primary); }
+.file-row.selected { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
+.file-icon { font-size: 1.5rem; width: 2rem; text-align: center; flex: none; }
+.file-meta { flex: 1; min-width: 0; }
+.file-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-sub { font-size: 0.8rem; color: var(--muted); }
+.file-actions { display: flex; align-items: center; gap: 0.6rem; flex: none; }
+
+/* ---------- Dropzone ---------- */
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 2.5rem 1rem;
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.dropzone.over { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }
+.dz-icon { font-size: 2.5rem; }
+.dz-inner p { color: var(--muted); margin: 0.5rem 0 0.9rem; }
+
+.upload-list { margin-top: 1.25rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.up-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+  box-shadow: var(--shadow);
+}
+.up-head { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; }
+.up-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.up-sub { font-size: 0.8rem; color: var(--muted); }
+.progress {
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--primary);
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  padding: 0.7rem 1.1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  box-shadow: var(--shadow);
+  z-index: 20;
+  animation: toast-in 0.2s ease;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (max-width: 520px) {
+  .file-sub { font-size: 0.72rem; }
+  .tabpanel { padding: 0.9rem; }
+}
+''';
+  static const String stylesCssType = "text/css; charset=utf-8";
+
+  static const String appJs = r'''/* LocalDrop browser client — vanilla JS, no frameworks. */
+(function () {
+  "use strict";
+
+  const els = {
+    body: document.body,
+    pinForm: document.getElementById("pin-form"),
+    pinInput: document.getElementById("pin-input"),
+    pinError: document.getElementById("pin-error"),
+    viewApp: document.getElementById("view-app"),
+    viewPin: document.getElementById("view-pin"),
+    tabs: Array.from(document.querySelectorAll(".tab")),
+    tabFiles: document.getElementById("tab-files"),
+    tabUpload: document.getElementById("tab-upload"),
+    fileList: document.getElementById("file-list"),
+    filesEmpty: document.getElementById("files-empty"),
+    selectAll: document.getElementById("select-all"),
+    downloadZip: document.getElementById("download-zip"),
+    refresh: document.getElementById("refresh"),
+    dropzone: document.getElementById("dropzone"),
+    pickFiles: document.getElementById("pick-files"),
+    fileInput: document.getElementById("file-input"),
+    uploadList: document.getElementById("upload-list"),
+    conn: document.getElementById("conn-status"),
+    toast: document.getElementById("toast"),
+  };
+
+  const state = {
+    token: null,
+    files: [],
+    selected: new Set(),
+    uploads: new Map(),
+  };
+
+  /* ---------- helpers ---------- */
+  function authHeaders() {
+    const h = { "X-Requested-With": "fetch" };
+    if (state.token) h["Authorization"] = "Bearer " + state.token;
+    return h;
+  }
+
+  async function api(path, options) {
+    options = options || {};
+    options.credentials = "same-origin";
+    options.headers = Object.assign(authHeaders(), options.headers || {});
+    const res = await fetch(path, options);
+    if (res.status === 401) {
+      // Session expired
+      logout();
+      throw new Error("unauthorized");
+    }
+    if (!res.ok) throw new Error("http_" + res.status);
+    return res;
+  }
+
+  function showToast(msg, ms) {
+    els.toast.textContent = msg;
+    els.toast.hidden = false;
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => (els.toast.hidden = true), ms || 2600);
+  }
+
+  function setConn(ok) {
+    els.conn.classList.toggle("ok", ok === true);
+    els.conn.classList.toggle("bad", ok === false);
+  }
+
+  function fmtSize(bytes) {
+    if (bytes == null) return "";
+    const u = ["B", "KB", "MB", "GB", "TB"];
+    let i = 0;
+    let n = bytes;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return (i === 0 ? n : n.toFixed(n < 10 ? 2 : 1)) + " " + u[i];
+  }
+
+  function fmtDate(ts) {
+    if (!ts) return "";
+    const d = new Date(ts * 1000);
+    return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function iconFor(name) {
+    const ext = (name.split(".").pop() || "").toLowerCase();
+    const map = {
+      png: "🖼", jpg: "🖼", jpeg: "🖼", gif: "🖼", webp: "🖼", svg: "🖼", heic: "🖼",
+      mp4: "🎞", mov: "🎞", mkv: "🎞", webm: "🎞", avi: "🎞",
+      mp3: "🎵", wav: "🎵", ogg: "🎵", flac: "🎵", m4a: "🎵",
+      pdf: "📄", doc: "📝", docx: "📝", txt: "📝", md: "📝", rtf: "📝",
+      xls: "📊", xlsx: "📊", csv: "📊",
+      zip: "🗜", rar: "🗜", "7z": "🗜", gz: "🗜", tar: "🗜",
+      apk: "📦", exe: "⚙",
+    };
+    if (map[ext]) return map[ext];
+    if (["folder", "dir"].includes(ext)) return "📁";
+    return "📄";
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+    );
+  }
+
+  function uuid() {
+    return (crypto.randomUUID && crypto.randomUUID()) ||
+      (Date.now().toString(36) + Math.random().toString(36).slice(2));
+  }
+
+  /* ---------- auth ---------- */
+  els.pinForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const pin = els.pinInput.value.trim();
+    if (pin.length !== 6) return;
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      if (!res.ok) {
+        els.pinError.hidden = false;
+        els.pinInput.value = "";
+        return;
+      }
+      const data = await res.json();
+      state.token = data.token;
+      enterApp();
+    } catch (err) {
+      els.pinError.hidden = false;
+      els.pinError.textContent = "Connection failed. Is the phone still on the network?";
+    }
+  });
+
+  els.pinInput.addEventListener("input", () => {
+    els.pinInput.value = els.pinInput.value.replace(/\D/g, "").slice(0, 6);
+    els.pinError.hidden = true;
+    if (els.pinInput.value.length === 6) els.pinForm.requestSubmit();
+  });
+
+  function logout() {
+    state.token = null;
+    els.viewApp.hidden = true;
+    els.viewPin.hidden = false;
+    els.body.dataset.view = "pin";
+  }
+
+  async function enterApp() {
+    els.viewPin.hidden = true;
+    els.viewApp.hidden = false;
+    els.body.dataset.view = "app";
+    await loadFiles();
+  }
+
+  /* ---------- files ---------- */
+  async function loadFiles() {
+    try {
+      const res = await api("/api/files");
+      const data = await res.json();
+      state.files = data.files || [];
+      state.selected.clear();
+      renderFiles();
+      setConn(true);
+    } catch (err) {
+      if (err.message !== "unauthorized") {
+        setConn(false);
+        showToast("Could not reach the phone.");
+      }
+    }
+  }
+
+  function renderFiles() {
+    els.fileList.innerHTML = "";
+    els.filesEmpty.hidden = state.files.length > 0;
+    for (const f of state.files) {
+      const row = document.createElement("div");
+      row.className = "file-row";
+      row.dataset.name = f.name;
+      const checked = state.selected.has(f.name);
+      if (checked) row.classList.add("selected");
+      row.innerHTML = `
+        <input type="checkbox" class="file-check" ${checked ? "checked" : ""} />
+        <div class="file-icon">${iconFor(f.name)}</div>
+        <div class="file-meta">
+          <div class="file-name">${escapeHtml(f.name)}</div>
+          <div class="file-sub">${fmtSize(f.size)} · ${fmtDate(f.modified)}</div>
+        </div>
+        <div class="file-actions">
+          <button class="btn primary dl" title="Download">↓ Download</button>
+        </div>`;
+      row.querySelector(".file-check").addEventListener("change", (e) => {
+        if (e.target.checked) state.selected.add(f.name);
+        else state.selected.delete(f.name);
+        row.classList.toggle("selected", e.target.checked);
+        updateSelectionUI();
+      });
+      row.querySelector(".dl").addEventListener("click", () => downloadFile(f.name));
+      els.fileList.appendChild(row);
+    }
+    updateSelectionUI();
+  }
+
+  function updateSelectionUI() {
+    els.downloadZip.disabled = state.selected.size === 0;
+    els.selectAll.checked = state.files.length > 0 && state.selected.size === state.files.length;
+  }
+
+  els.selectAll.addEventListener("change", (e) => {
+    if (e.target.checked) state.files.forEach((f) => state.selected.add(f.name));
+    else state.selected.clear();
+    renderFiles();
+  });
+
+  els.refresh.addEventListener("click", loadFiles);
+
+  els.downloadZip.addEventListener("click", () => {
+    const names = Array.from(state.selected);
+    if (!names.length) return;
+    const q = encodeURIComponent(names.join(","));
+    const a = document.createElement("a");
+    a.href = "/api/download-zip?files=" + q;
+    a.download = "localdrop.zip";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+
+  function downloadFile(name) {
+    const a = document.createElement("a");
+    a.href = "/api/download/" + encodeURIComponent(name);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  /* ---------- tabs ---------- */
+  els.tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      els.tabs.forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      const name = tab.dataset.tab;
+      els.tabFiles.hidden = name !== "files";
+      els.tabUpload.hidden = name !== "upload";
+    });
+  });
+
+  /* ---------- upload (XHR gives reliable progress) ---------- */
+  els.pickFiles.addEventListener("click", () => els.fileInput.click());
+  els.fileInput.addEventListener("change", (e) => {
+    handleFiles(e.target.files);
+    els.fileInput.value = "";
+  });
+
+  ["dragenter", "dragover"].forEach((ev) =>
+    els.dropzone.addEventListener(ev, (e) => {
+      e.preventDefault();
+      els.dropzone.classList.add("over");
+    })
+  );
+  ["dragleave", "drop"].forEach((ev) =>
+    els.dropzone.addEventListener(ev, (e) => {
+      e.preventDefault();
+      els.dropzone.classList.remove("over");
+    })
+  );
+  els.dropzone.addEventListener("drop", (e) => {
+    if (e.dataTransfer && e.dataTransfer.files) handleFiles(e.dataTransfer.files);
+  });
+
+  function handleFiles(fileList) {
+    for (const file of Array.from(fileList)) startUpload(file);
+  }
+
+  function startUpload(file) {
+    const id = uuid();
+    const fd = new FormData();
+    fd.append("file", file, file.name);
+
+    const row = document.createElement("div");
+    row.className = "up-row";
+    row.innerHTML = `
+      <div class="up-head">
+        <span class="up-name">${escapeHtml(file.name)}</span>
+        <span class="up-sub">0%</span>
+      </div>
+      <div class="progress"><span></span></div>
+      <div class="up-sub" style="margin-top:.35rem">0 / ${fmtSize(file.size)} · preparing…</div>`;
+    els.uploadList.prepend(row);
+    const bar = row.querySelector(".progress > span");
+    const pct = row.querySelector(".up-sub:last-child");
+    const subHead = row.querySelector(".up-sub:first-of-type");
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/upload?id=" + id);
+    xhr.setRequestHeader("X-Requested-With", "fetch");
+    if (state.token) xhr.setRequestHeader("Authorization", "Bearer " + state.token);
+    xhr.withCredentials = true;
+
+    xhr.upload.onprogress = (e) => {
+      const p = e.total ? (e.loaded / e.total) * 100 : 0;
+      bar.style.width = p.toFixed(1) + "%";
+      subHead.textContent = p.toFixed(0) + "%";
+      pct.textContent = fmtSize(e.loaded) + " / " + fmtSize(e.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        bar.style.width = "100%";
+        subHead.textContent = "Done";
+        pct.textContent = fmtSize(file.size) + " · uploaded";
+        loadFiles();
+      } else if (xhr.status === 401) {
+        logout();
+      } else {
+        subHead.textContent = "Failed";
+        pct.textContent = "Upload error (" + xhr.status + ")";
+      }
+    };
+    xhr.onerror = () => {
+      subHead.textContent = "Failed";
+      pct.textContent = "Connection lost";
+      setConn(false);
+    };
+    xhr.send(fd);
+  }
+
+  /* ---------- periodic heartbeat ---------- */
+  setInterval(() => {
+    if (els.body.dataset.view === "app") loadFiles();
+  }, 8000);
+
+  /* ---------- boot ---------- */
+  els.pinInput.focus();
+})();
+''';
+  static const String appJsType = "application/javascript; charset=utf-8";
+
+}

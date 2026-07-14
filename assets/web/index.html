@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <title>LocalDrop</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-view="pin">
+  <!-- ===== PIN view ===== -->
+  <section id="view-pin" class="view">
+    <div class="card pin-card">
+      <div class="logo">⬇</div>
+      <h1>LocalDrop</h1>
+      <p class="muted">Enter the 6-digit PIN shown on the phone.</p>
+      <form id="pin-form" autocomplete="off">
+        <input
+          id="pin-input"
+          class="pin-input"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          maxlength="6"
+          placeholder="••••••"
+          aria-label="PIN"
+          autofocus
+        />
+      </form>
+      <p id="pin-error" class="error" hidden>Wrong PIN. Try again.</p>
+    </div>
+  </section>
+
+  <!-- ===== App view ===== -->
+  <section id="view-app" class="view" hidden>
+    <header class="appbar">
+      <div class="brand">
+        <span class="logo small">⬇</span>
+        <strong>LocalDrop</strong>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="files" role="tab">Files</button>
+        <button class="tab" data-tab="upload" role="tab">Upload</button>
+      </nav>
+      <div class="conn" id="conn-status" title="Connection status">
+        <span class="dot"></span>
+      </div>
+    </header>
+
+    <!-- Files tab -->
+    <div class="tabpanel" id="tab-files">
+      <div class="toolbar">
+        <label class="checkbox">
+          <input type="checkbox" id="select-all" />
+          <span>Select all</span>
+        </label>
+        <button id="download-zip" class="btn primary" disabled>Download selected as ZIP</button>
+        <button id="refresh" class="btn ghost" title="Refresh">⟳</button>
+      </div>
+      <div id="file-list" class="file-list" aria-live="polite"></div>
+      <p id="files-empty" class="muted empty" hidden>No files in the shared folder.</p>
+    </div>
+
+    <!-- Upload tab -->
+    <div class="tabpanel" id="tab-upload" hidden>
+      <div id="dropzone" class="dropzone">
+        <div class="dz-inner">
+          <div class="dz-icon">⤴</div>
+          <p><strong>Drop files here</strong> or</p>
+          <button id="pick-files" class="btn primary" type="button">Choose files</button>
+          <input id="file-input" type="file" multiple hidden />
+        </div>
+      </div>
+      <div id="upload-list" class="upload-list"></div>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+  </section>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

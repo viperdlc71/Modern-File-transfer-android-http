@@ -1,0 +1,54 @@
+name: localdrop
+description: Turn your phone into a local-network file transfer hub. Run an embedded HTTP server, then share files with any browser on the same WiFi — no app install needed on the other device.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: '>=3.16.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP server (lightweight, streaming-friendly)
+  shelf: ^1.4.1
+  shelf_router: ^1.1.4
+
+  # Multipart upload parsing + content sniffing
+  mime: ^1.0.5
+
+  # Zip streaming (archive is used for helpers; our own streaming encoder does the work)
+  archive: ^3.6.1
+
+  # QR code generation for the connection URL
+  qr_flutter: ^4.1.0
+
+  # File picking / storage access
+  file_picker: ^8.0.0
+  path_provider: ^2.1.2
+
+  # Local network IP discovery
+  network_info_plus: ^5.0.0
+
+  # Keeps the HTTP server alive when the app is backgrounded
+  flutter_foreground_task: ^8.0.0
+
+  # Lightweight reactive state
+  provider: ^6.1.2
+
+  # Path manipulation
+  path: ^1.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/web/index.html
+    - assets/web/styles.css
+    - assets/web/app.js

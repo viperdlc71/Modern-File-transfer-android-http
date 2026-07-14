@@ -1,0 +1,233 @@
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #eef0f3;
+  --text: #14181f;
+  --muted: #6b7480;
+  --border: #e2e5ea;
+  --primary: #2563eb;
+  --primary-ink: #ffffff;
+  --danger: #e11d48;
+  --ok: #16a34a;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-2: #1f2630;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --border: #2a313c;
+    --primary: #4d8bff;
+    --primary-ink: #0d1117;
+    --danger: #ff5c7c;
+    --ok: #3fb950;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.35);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.muted { color: var(--muted); }
+.error { color: var(--danger); font-size: 0.9rem; margin-top: 0.75rem; }
+.empty { text-align: center; padding: 2rem 0; }
+
+.view {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+/* ---------- PIN ---------- */
+.pin-card {
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  padding: 2rem 1.5rem;
+}
+.logo {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+.logo.small { font-size: 1.1rem; }
+.pin-card h1 { margin: 0.5rem 0 0.25rem; font-size: 1.6rem; }
+.pin-input {
+  margin-top: 1.25rem;
+  width: 100%;
+  font-size: 2rem;
+  letter-spacing: 0.5rem;
+  text-align: center;
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.pin-input:focus { border-color: var(--primary); }
+
+/* ---------- App shell ---------- */
+#view-app { justify-content: flex-start; padding: 0; }
+.appbar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.brand { display: flex; align-items: center; gap: 0.5rem; font-size: 1.05rem; }
+.tabs { display: flex; gap: 0.25rem; margin-left: auto; }
+.tab {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.tab.active { background: var(--surface-2); color: var(--text); }
+.conn .dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: background 0.2s ease;
+}
+.conn.ok .dot { background: var(--ok); box-shadow: 0 0 0 4px rgba(63,185,80,0.18); }
+.conn.bad .dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(225,29,72,0.18); }
+
+.tabpanel { width: 100%; max-width: 880px; margin: 0 auto; padding: 1.25rem; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.checkbox { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--muted); cursor: pointer; }
+.btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s ease, opacity 0.15s ease;
+}
+.btn:active { transform: scale(0.98); }
+.btn.primary { background: var(--primary); color: var(--primary-ink); border-color: transparent; }
+.btn.ghost { background: transparent; border-color: transparent; font-size: 1.1rem; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---------- File list ---------- */
+.file-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+  box-shadow: var(--shadow);
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+.file-row:hover { border-color: var(--primary); }
+.file-row.selected { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
+.file-icon { font-size: 1.5rem; width: 2rem; text-align: center; flex: none; }
+.file-meta { flex: 1; min-width: 0; }
+.file-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-sub { font-size: 0.8rem; color: var(--muted); }
+.file-actions { display: flex; align-items: center; gap: 0.6rem; flex: none; }
+
+/* ---------- Dropzone ---------- */
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 2.5rem 1rem;
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.dropzone.over { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }
+.dz-icon { font-size: 2.5rem; }
+.dz-inner p { color: var(--muted); margin: 0.5rem 0 0.9rem; }
+
+.upload-list { margin-top: 1.25rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.up-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+  box-shadow: var(--shadow);
+}
+.up-head { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; }
+.up-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.up-sub { font-size: 0.8rem; color: var(--muted); }
+.progress {
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--primary);
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  padding: 0.7rem 1.1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  box-shadow: var(--shadow);
+  z-index: 20;
+  animation: toast-in 0.2s ease;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (max-width: 520px) {
+  .file-sub { font-size: 0.72rem; }
+  .tabpanel { padding: 0.9rem; }
+}

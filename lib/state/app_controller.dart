@@ -1,0 +1,266 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:network_info_plus/network_info_plus.dart';
+import 'package:provider/provider.dart';
+
+import '../models/transfer.dart';
+import '../server/session_manager.dart';
+import '../services/foreground_service.dart';
+import '../services/shared_folder.dart';
+
+/// Central, framework-agnostic controller for LocalDrop's runtime state.
+/// Exposed to the widget tree via a [ChangeNotifierProvider].
+class AppController extends ChangeNotifier {
+  final SettingsStore _store = SettingsStore();
+
+  AppSettings _settings;
+  bool _initialized = false;
+
+  bool isRunning = false;
+  bool isStarting = false;
+  String? localIp;
+  int? port;
+  String? pin;
+  String? url;
+  String? folder;
+  String? error;
+  bool permissionsGranted = false;
+
+  List<Transfer> transfers = const [];
+
+  AppController(this._settings);
+
+  AppSettings get settings => _settings;
+
+  /// Call once at startup (after [WidgetsFlutterBinding.ensureInitialized]).
+  Future<void> init() async {
+    if (_initialized) return;
+    _initialized = true;
+    _initForegroundTask();
+    await _requestPermissions();
+    FlutterForegroundTask.addTaskDataCallback(_onTaskData);
+
+    // If a service is already running (e.g. survived app close), restore state
+    // from the config we previously saved for the task isolate.
+    if (await FlutterForegroundTask.isRunningService) {
+      try {
+        final raw = await FlutterForegroundTask.getData(key: kConfigKey);
+        if (raw != null) {
+          final decoded = raw is String ? jsonDecode(raw) : raw;
+          final cfg = ServerConfig.fromJson(decoded as Map<String, dynamic>);
+          isRunning = true;
+          pin = cfg.pin;
+          port = cfg.port;
+          folder = cfg.folder;
+          url = cfg.url;
+        }
+      } catch (_) {
+        // ignore — treat as not running
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<void> _requestPermissions() async {
+    try {
+      final perm = await FlutterForegroundTask.checkNotificationPermission();
+      if (perm != NotificationPermission.granted) {
+        await FlutterForegroundTask.requestNotificationPermission();
+      }
+      if (Platform.isAndroid) {
+        if (!await FlutterForegroundTask.isIgnoringBatteryOptimizations) {
+          await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+        }
+      }
+      permissionsGranted = true;
+    } catch (_) {
+      permissionsGranted = false;
+    }
+    notifyListeners();
+  }
+
+  void _initForegroundTask() {
+    FlutterForegroundTask.init(
+      androidNotificationOptions: const AndroidNotificationOptions(
+        channelId: 'localdrop_foreground',
+        channelName: 'LocalDrop File Sharing',
+        channelDescription: 'Keeps the local file-sharing server alive.',
+        channelImportance: NotificationChannelImportance.low,
+        onlyAlertOnce: true,
+      ),
+      iosNotificationOptions: const IOSNotificationOptions(
+        showNotification: false,
+        playSound: false,
+      ),
+      foregroundTaskOptions: const ForegroundTaskOptions(
+        eventAction: ForegroundTaskEventAction.repeat(5000),
+        autoRunOnBoot: false,
+        autoRunOnMyPackageReplaced: true,
+        allowWakeLock: true,
+        allowWifiLock: true,
+      ),
+    );
+  }
+
+  /// Starts the embedded server (via the foreground service).
+  Future<void> start() async {
+    if (isRunning || isStarting) return;
+    isStarting = true;
+    error = null;
+    notifyListeners();
+
+    final ip = await _resolveLocalIp();
+    localIp = ip;
+
+    final effectivePin = _settings.regeneratePin
+        ? SessionManager.generatePin()
+        : (_settings.fixedPin ?? SessionManager.generatePin());
+
+    // Persist a freshly chosen fixed PIN so it stays stable across restarts.
+    if (!_settings.regeneratePin && _settings.fixedPin != effectivePin) {
+      _settings = _settings.copyWith(fixedPin: effectivePin);
+      await _store.save(_settings);
+    }
+
+    final usableFolder = _settings.folderPath;
+    final accessible = await ensureFolder(usableFolder);
+    if (!accessible) {
+      isStarting = false;
+      error = 'Cannot access the shared folder:\n$usableFolder';
+      notifyListeners();
+      return;
+    }
+    folder = usableFolder;
+
+    pin = effectivePin;
+    port = _settings.port;
+    url = 'http://$ip:${_settings.port}';
+
+    final config = ServerConfig(
+      pin: effectivePin,
+      port: _settings.port,
+      folder: usableFolder,
+      regeneratePin: _settings.regeneratePin,
+      url: url,
+    );
+
+    try {
+      await startForegroundService(config);
+    } catch (e) {
+      isStarting = false;
+      error = 'Failed to start: $e';
+      notifyListeners();
+    }
+  }
+
+  Future<void> stop() async {
+    if (!isRunning && !isStarting) return;
+    try {
+      await stopForegroundService();
+    } catch (_) {
+      // ignore
+    }
+    isRunning = false;
+    isStarting = false;
+    notifyListeners();
+  }
+
+  Future<void> changeFolder() async {
+    final picked = await pickSharedFolder();
+    if (picked == null || picked == folder) return;
+    _settings = _settings.copyWith(folderPath: picked);
+    await _store.save(_settings);
+    folder = picked;
+    if (isRunning) {
+      requestFolderChange(picked);
+    }
+    notifyListeners();
+  }
+
+  Future<void> updateSettings({
+    bool? regeneratePin,
+    int? port,
+  }) async {
+    _settings = _settings.copyWith(
+      regeneratePin: regeneratePin,
+      port: port,
+    );
+    await _store.save(_settings);
+    notifyListeners();
+  }
+
+  void _onTaskData(Object data) {
+    if (data is! Map) return;
+    final map = data;
+    switch (map['type']) {
+      case 'started':
+        isRunning = true;
+        isStarting = false;
+        port = map['port'] as int? ?? port;
+        pin = map['pin'] as String? ?? pin;
+        error = null;
+      case 'error':
+        isRunning = false;
+        isStarting = false;
+        error = map['message'] as String? ?? 'Unknown error';
+      case 'stopped':
+        isRunning = false;
+        isStarting = false;
+        transfers = const [];
+      case 'folder-changed':
+        folder = map['folder'] as String? ?? folder;
+      case 'progress':
+        final raw = map['transfers'];
+        if (raw is String) {
+          transfers = decodeTransfers(raw);
+        }
+    }
+    notifyListeners();
+  }
+
+  Future<String> _resolveLocalIp() async {
+    try {
+      final wifi = await NetworkInfo().getWifiIP();
+      if (wifi != null && wifi.isNotEmpty) return wifi;
+    } catch (_) {
+      // fall through to interface scan
+    }
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLoopback: false,
+      );
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          final s = addr.address;
+          if (s.startsWith('192.168.') ||
+              s.startsWith('10.') ||
+              s.startsWith('172.')) {
+            return s;
+          }
+        }
+      }
+      if (interfaces.isNotEmpty) {
+        return interfaces.first.addresses.first.address;
+      }
+    } catch (_) {
+      // ignore
+    }
+    return '127.0.0.1';
+  }
+
+  @override
+  void dispose() {
+    FlutterForegroundTask.removeTaskDataCallback(_onTaskData);
+    super.dispose();
+  }
+}
+
+/// Convenience accessor for widgets.
+AppController appControllerOf(BuildContext context) =>
+    Provider.of<AppController>(context, listen: false);

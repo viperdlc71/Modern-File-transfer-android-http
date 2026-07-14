@@ -76,29 +76,6 @@ class AppController extends ChangeNotifier {
     }
     notifyListeners();
   }
-    storagePermissionAsked = true;
-    notifyListeners();
-
-    // If a service is already running (e.g. survived app close), restore state
-    // from the config we previously saved for the task isolate.
-    if (await FlutterForegroundTask.isRunningService) {
-      try {
-        final raw = await FlutterForegroundTask.getData(key: kConfigKey);
-        if (raw != null) {
-          final decoded = raw is String ? jsonDecode(raw) : raw;
-          final cfg = ServerConfig.fromJson(decoded as Map<String, dynamic>);
-          isRunning = true;
-          pin = cfg.pin;
-          port = cfg.port;
-          folder = cfg.folder;
-          urls = cfg.urls ?? [];
-        }
-      } catch (_) {
-        // ignore — treat as not running
-      }
-    }
-    notifyListeners();
-  }
 
   Future<void> _requestPermissions() async {
     try {

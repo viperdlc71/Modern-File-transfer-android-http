@@ -21,7 +21,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace = "com.localdrop.app"
-    compileSdk = 34
+    compileSdk = 35
 
     ndkVersion = flutter.ndkVersion
 
@@ -37,7 +37,7 @@ android {
     defaultConfig {
         applicationId = "com.localdrop.app"
         minSdk = 21
-        targetSdk = 34
+        targetSdk = 35
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
     }

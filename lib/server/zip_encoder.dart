@@ -56,7 +56,7 @@ class StreamingZipEncoder {
       crc.add(chunk);
       size += chunk.length;
       _write(chunk);
-      await _drain();
+      _drain();
     }
 
     final descriptor = <int>[];
@@ -115,7 +115,7 @@ class StreamingZipEncoder {
     _w16(eocd, 0); // comment length
     _write(eocd);
 
-    await _drain(force: true);
+    _drain(force: true);
     await _sink.close();
   }
 
@@ -127,12 +127,12 @@ class StreamingZipEncoder {
     onBytes?.call(_totalWritten);
   }
 
-  Future<void> _drain({bool force = false}) async {
+  void _drain({bool force = false}) {
     if (_buf.isEmpty) return;
     if (!force && _buf.length < _flushThreshold) return;
     final out = Uint8List.fromList(_buf);
     _buf.clear();
-    await _sink.add(out);
+    _sink.add(out);
   }
 }
 

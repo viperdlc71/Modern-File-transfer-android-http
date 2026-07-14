@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-
-import 'package:typed_data/typed_data.dart';
+import 'dart:typed_data';
 
 /// A streaming ZIP writer that emits a STORE (no compression) archive without
 /// buffering whole files in memory — each file's bytes are streamed straight
@@ -12,7 +11,7 @@ class StreamingZipEncoder {
   final StreamSink<List<int>> _sink;
   final void Function(int totalBytesWritten)? onBytes;
 
-  final BytesBuilder _buf = BytesBuilder();
+  final List<int> _buf = <int>[];
   int _offset = 0;
   int _totalWritten = 0;
   final List<_CentralRecord> _centrals = [];
@@ -36,7 +35,7 @@ class StreamingZipEncoder {
     final crc = _Crc32();
     int size = 0;
 
-    final header = BytesBuilder();
+    final header = <int>[];
     _w32(header, 0x04034b50); // local file header signature
     _w16(header, 20); // version needed to extract
     _w16(header, 0x0008); // general purpose flag (bit 3: data descriptor)
@@ -49,8 +48,8 @@ class StreamingZipEncoder {
     _w32(header, 0); // uncompressed size (data descriptor)
     _w16(header, nameBytes.length);
     _w16(header, 0); // extra field length
-    header.add(nameBytes);
-    _write(header.toBytes());
+    header.addAll(nameBytes);
+    _write(header);
 
     await for (final chunk in content) {
       if (chunk.isEmpty) continue;
@@ -60,12 +59,12 @@ class StreamingZipEncoder {
       await _drain();
     }
 
-    final descriptor = BytesBuilder();
+    final descriptor = <int>[];
     _w32(descriptor, 0x08074b50); // data descriptor signature
     _w32(descriptor, crc.value);
     _w32(descriptor, size); // compressed size (store)
     _w32(descriptor, size); // uncompressed size
-    _write(descriptor.toBytes());
+    _write(descriptor);
 
     _centrals.add(_CentralRecord(
       nameBytes: nameBytes,
@@ -81,12 +80,12 @@ class StreamingZipEncoder {
   /// end-of-central-directory record, then closes the sink.
   Future<void> close() async {
     final centralStart = _offset;
-    final central = BytesBuilder();
+    final central = <int>[];
     for (final c in _centrals) {
       _w32(central, 0x02014b50); // central directory file header
       _w16(central, 20); // version made by
       _w16(central, 20); // version needed
-      _w16(central, 0x0008); // general purpose flag
+      _w16(central, 0x0008);
       _w16(central, 0); // method = store
       _w16(central, c.time);
       _w16(central, c.date);
@@ -100,12 +99,12 @@ class StreamingZipEncoder {
       _w16(central, 0); // internal file attributes
       _w32(central, 0); // external file attributes
       _w32(central, c.localOffset);
-      central.add(c.nameBytes);
+      central.addAll(c.nameBytes);
     }
-    _write(central.toBytes());
+    _write(central);
     final centralSize = _offset - centralStart;
 
-    final eocd = BytesBuilder();
+    final eocd = <int>[];
     _w32(eocd, 0x06054b50); // end of central directory signature
     _w16(eocd, 0); // number of this disk
     _w16(eocd, 0); // disk with start of central directory
@@ -114,7 +113,7 @@ class StreamingZipEncoder {
     _w32(eocd, centralSize);
     _w32(eocd, centralStart);
     _w16(eocd, 0); // comment length
-    _write(eocd.toBytes());
+    _write(eocd);
 
     await _drain(force: true);
     await _sink.close();
@@ -122,7 +121,7 @@ class StreamingZipEncoder {
 
   void _write(List<int> bytes) {
     if (bytes.isEmpty) return;
-    _buf.add(bytes);
+    _buf.addAll(bytes);
     _offset += bytes.length;
     _totalWritten += bytes.length;
     onBytes?.call(_totalWritten);
@@ -131,9 +130,9 @@ class StreamingZipEncoder {
   Future<void> _drain({bool force = false}) async {
     if (_buf.isEmpty) return;
     if (!force && _buf.length < _flushThreshold) return;
-    final out = _buf.toBytes();
+    final out = Uint8List.fromList(_buf);
     _buf.clear();
-    await _sink.add(Uint8List.view(out.buffer, out.offsetInBytes, out.length));
+    await _sink.add(out);
   }
 }
 
@@ -154,17 +153,12 @@ class _CentralRecord {
   });
 }
 
-void _w32(BytesBuilder b, int v) {
-  b.add([
-    v & 0xff,
-    (v >> 8) & 0xff,
-    (v >> 16) & 0xff,
-    (v >> 24) & 0xff,
-  ]);
+void _w32(List<int> b, int v) {
+  b.addAll([v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff, (v >> 24) & 0xff]);
 }
 
-void _w16(BytesBuilder b, int v) {
-  b.add([v & 0xff, (v >> 8) & 0xff]);
+void _w16(List<int> b, int v) {
+  b.addAll([v & 0xff, (v >> 8) & 0xff]);
 }
 
 /// DOS date/time from a [DateTime] (local).

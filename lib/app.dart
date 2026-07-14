@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_controller.dart';
-import 'home_screen.dart';
+import 'ui/home_screen.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

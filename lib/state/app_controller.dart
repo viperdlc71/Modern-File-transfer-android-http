@@ -86,18 +86,17 @@ class AppController extends ChangeNotifier {
 
   void _initForegroundTask() {
     FlutterForegroundTask.init(
-      androidNotificationOptions: const AndroidNotificationOptions(
+      androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'localdrop_foreground',
         channelName: 'LocalDrop File Sharing',
         channelDescription: 'Keeps the local file-sharing server alive.',
-        channelImportance: NotificationChannelImportance.low,
         onlyAlertOnce: true,
       ),
-      iosNotificationOptions: const IOSNotificationOptions(
+      iosNotificationOptions: IOSNotificationOptions(
         showNotification: false,
         playSound: false,
       ),
-      foregroundTaskOptions: const ForegroundTaskOptions(
+      foregroundTaskOptions: ForegroundTaskOptions(
         eventAction: ForegroundTaskEventAction.repeat(5000),
         autoRunOnBoot: false,
         autoRunOnMyPackageReplaced: true,
